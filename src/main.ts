@@ -7,6 +7,10 @@ import { validateBuilding, formatValidation } from './validator.js';
 import { composeSvg } from './svg-composer.js';
 import { escapeXml } from './svg-utils.js';
 import { computeAreaSummary, areaSummaryToJson } from './area-table.js';
+import { toValidationJson } from './fix-hints.js';
+import { buildInspectionReport } from './inspect.js';
+import { renderAsciiMap } from './ascii-map.js';
+import { runSolveLoop } from './solve.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +20,10 @@ function main() {
 
   if (command === 'validate') {
     runValidate(args.slice(1));
+  } else if (command === 'inspect') {
+    runInspect(args.slice(1));
+  } else if (command === 'solve') {
+    runSolve(args.slice(1));
   } else {
     runRender(args);
   }
@@ -70,21 +78,26 @@ function runRender(args: string[]) {
 
 function runValidate(args: string[]) {
   if (args.includes('--help') || args.includes('-h')) {
-    console.log('Usage: main.js validate <file.yaml> [file2.yaml ...]');
-    console.log('       main.js validate --all');
+    console.log('Usage: main.js validate <file.yaml> [file2.yaml ...] [--format json]');
+    console.log('       main.js validate --all [--format json]');
     process.exit(0);
   }
-  if (args.length === 0) {
-    console.error('Usage: main.js validate <file.yaml> [file2.yaml ...]');
-    console.error('       main.js validate --all');
+
+  const jsonFormat = args.includes('--format') && args[args.indexOf('--format') + 1] === 'json';
+  const filteredArgs = args.filter(a => a !== '--format' && a !== 'json' && a !== '--all');
+
+  if (filteredArgs.length === 0 && !args.includes('--all')) {
+    console.error('Usage: main.js validate <file.yaml> [file2.yaml ...] [--format json]');
+    console.error('       main.js validate --all [--format json]');
     process.exit(1);
   }
 
   const files = args.includes('--all')
     ? findSampleFiles()
-    : args.map(f => resolve(f));
+    : filteredArgs.map(f => resolve(f));
 
   let hasError = false;
+  const jsonResults: Array<{ file: string; validation: ReturnType<typeof toValidationJson> }> = [];
 
   for (const filePath of files) {
     const label = filePath.replace(process.cwd() + '/', '');
@@ -92,7 +105,11 @@ function runValidate(args: string[]) {
     try {
       yamlText = readFileSync(filePath, 'utf-8');
     } catch {
-      console.error(`✗ ${label}: file not found`);
+      if (jsonFormat) {
+        jsonResults.push({ file: label, validation: { ok: false, errorCount: 1, warningCount: 0, issues: [{ severity: 'error', code: 'FILE_NOT_FOUND', message: `File not found: ${label}`, fix_hint: 'Check the file path', auto_fixable: false }] } });
+      } else {
+        console.error(`✗ ${label}: file not found`);
+      }
       hasError = true;
       continue;
     }
@@ -103,18 +120,92 @@ function runValidate(args: string[]) {
       const result = validateBuilding(model);
 
       if (!result.ok) hasError = true;
-      console.log(`${result.ok ? '✓' : '✗'} ${label}`);
-      for (const issue of result.issues) {
-        const prefix = issue.severity === 'error' ? '  ERROR' : '  WARN ';
-        console.log(`${prefix} [${issue.code}] ${issue.message}`);
+
+      if (jsonFormat) {
+        jsonResults.push({ file: label, validation: toValidationJson(result, model) });
+      } else {
+        console.log(`${result.ok ? '✓' : '✗'} ${label}`);
+        for (const issue of result.issues) {
+          const prefix = issue.severity === 'error' ? '  ERROR' : '  WARN ';
+          console.log(`${prefix} [${issue.code}] ${issue.message}`);
+        }
       }
     } catch (e) {
       hasError = true;
-      console.error(`✗ ${label}: ${e instanceof Error ? e.message : e}`);
+      if (jsonFormat) {
+        jsonResults.push({ file: label, validation: { ok: false, errorCount: 1, warningCount: 0, issues: [{ severity: 'error', code: 'PARSE_ERROR', message: e instanceof Error ? e.message : String(e), fix_hint: 'Fix YAML syntax or schema errors', auto_fixable: false }] } });
+      } else {
+        console.error(`✗ ${label}: ${e instanceof Error ? e.message : e}`);
+      }
     }
   }
 
+  if (jsonFormat) {
+    // Single file → flat object; multiple files → array
+    const output = jsonResults.length === 1
+      ? { file: jsonResults[0].file, ...jsonResults[0].validation }
+      : jsonResults.map(r => ({ file: r.file, ...r.validation }));
+    console.log(JSON.stringify(output, null, 2));
+  }
+
   process.exit(hasError ? 1 : 0);
+}
+
+// ─── inspect ───
+
+function runInspect(args: string[]) {
+  const asciiMap = args.includes('--ascii-map');
+  const filteredArgs = args.filter(a => a !== '--ascii-map');
+
+  const inputPath = filteredArgs[0];
+  if (!inputPath) {
+    console.error('Usage: main.js inspect <file.yaml> [--ascii-map]');
+    process.exit(1);
+  }
+
+  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const spec = parseArchilang(yamlText);
+  const model = resolveModel(spec);
+  const report = buildInspectionReport(model);
+
+  if (asciiMap) {
+    console.log(renderAsciiMap(report));
+  } else {
+    console.log(JSON.stringify(report, null, 2));
+  }
+}
+
+// ─── solve ───
+
+function runSolve(args: string[]) {
+  const dryRun = args.includes('--dry-run');
+  const maxIterIdx = args.indexOf('--max-iter');
+  const maxIter = maxIterIdx !== -1 ? parseInt(args[maxIterIdx + 1], 10) || 5 : 5;
+  const outIdx = args.indexOf('--out');
+  const outPath = outIdx !== -1 ? args[outIdx + 1] : undefined;
+
+  const filteredArgs = args.filter((a, i) =>
+    a !== '--dry-run' &&
+    a !== '--max-iter' && (i === 0 || args[i - 1] !== '--max-iter') &&
+    a !== '--out' && (i === 0 || args[i - 1] !== '--out')
+  );
+
+  const inputPath = filteredArgs[0];
+  if (!inputPath) {
+    console.error('Usage: main.js solve <file.yaml> [--dry-run] [--max-iter N] [--out fixed.yaml]');
+    process.exit(1);
+  }
+
+  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const result = runSolveLoop(yamlText, { maxIterations: maxIter, dryRun });
+
+  console.log(`\nSolve complete: ${result.iterations} iteration(s), ${result.fixes.filter(f => f.applied).length} fix(es) applied`);
+  console.log(`Final: ${result.finalErrorCount} error(s), ${result.finalWarningCount} warning(s), ok=${result.finalOk}`);
+
+  if (outPath && !dryRun) {
+    writeFileSync(resolve(outPath), result.finalYaml, 'utf-8');
+    console.log(`Fixed YAML written to: ${outPath}`);
+  }
 }
 
 function findSampleFiles(): string[] {
