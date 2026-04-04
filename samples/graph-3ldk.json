@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "building_type": "木造軸組",
+    "module": "shaku",
+    "orientation": "south",
+    "stories": 1
+  },
+  "zones": [
+    { "id": "public",  "type": "public",  "preferred_side": "south" },
+    { "id": "private", "type": "private" },
+    { "id": "water",   "type": "water" }
+  ],
+  "rooms": [
+    {
+      "id": "ldk",
+      "type": "LDK",
+      "zone": "public",
+      "floor": "1F",
+      "target_area_tatami": 16,
+      "equipment": [
+        { "type": "kitchen_counter" },
+        { "type": "refrigerator" }
+      ],
+      "windows": [
+        { "wall": "south", "size": "large" }
+      ]
+    },
+    {
+      "id": "washitsu",
+      "type": "和室",
+      "zone": "public",
+      "floor": "1F",
+      "target_area_tatami": 6,
+      "windows": [
+        { "wall": "south", "size": "medium" }
+      ]
+    },
+    {
+      "id": "bedroom",
+      "type": "主寝室",
+      "zone": "private",
+      "floor": "1F",
+      "target_area_tatami": 8,
+      "windows": [
+        { "wall": "west", "size": "medium" }
+      ]
+    },
+    {
+      "id": "kodomo",
+      "type": "子供部屋",
+      "zone": "private",
+      "floor": "1F",
+      "target_area_tatami": 6
+    },
+    {
+      "id": "bath",
+      "type": "浴室",
+      "zone": "water",
+      "floor": "1F",
+      "target_area_tatami": 2,
+      "equipment": [
+        { "type": "unit_bath", "wall": "north" }
+      ]
+    },
+    {
+      "id": "wash",
+      "type": "洗面脱衣",
+      "zone": "water",
+      "floor": "1F",
+      "target_area_tatami": 2,
+      "equipment": [
+        { "type": "washbasin", "wall": "east" },
+        { "type": "washing_machine", "wall": "east" }
+      ]
+    },
+    {
+      "id": "toilet",
+      "type": "トイレ",
+      "zone": "water",
+      "floor": "1F",
+      "target_area_tatami": 1,
+      "equipment": [
+        { "type": "toilet", "wall": "north" }
+      ]
+    }
+  ],
+  "connections": [
+    { "from": "washitsu", "to": "ldk",    "type": "door" },
+    { "from": "kodomo",   "to": "ldk",    "type": "door" },
+    { "from": "bedroom",  "to": "kodomo", "type": "door" },
+    { "from": "wash",     "to": "ldk",    "type": "sliding_door" },
+    { "from": "bath",     "to": "wash",   "type": "sliding_door" },
+    { "from": "toilet",   "to": "wash",   "type": "sliding_door" }
+  ],
+  "constraints": [
+    { "type": "entry",       "rooms": ["ldk"],                       "value": "south" },
+    { "type": "orientation", "rooms": ["ldk"],                       "value": "south" },
+    { "type": "cluster",     "rooms": ["bath", "wash", "toilet"],    "value": "water_cluster" },
+    { "type": "adjacency",   "rooms": ["washitsu", "ldk"],           "value": "adjacent" }
+  ]
+}

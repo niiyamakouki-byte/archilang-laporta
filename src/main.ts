@@ -11,6 +11,8 @@ import { toValidationJson } from './fix-hints.js';
 import { buildInspectionReport } from './inspect.js';
 import { renderAsciiMap } from './ascii-map.js';
 import { runSolveLoop } from './solve.js';
+import { graphToYaml, graphToSpec, specToYaml } from './graph/graph-to-yaml.js';
+import type { FloorplanGraph } from './graph/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +26,8 @@ function main() {
     runInspect(args.slice(1));
   } else if (command === 'solve') {
     runSolve(args.slice(1));
+  } else if (command === 'generate') {
+    runGenerate(args.slice(1));
   } else {
     runRender(args);
   }
@@ -219,6 +223,156 @@ function runSolve(args: string[]) {
     console.log(`Fixed YAML written to: ${outPath}`);
   }
 }
+
+// ─── generate (graph → yaml → render) ───
+
+function runGenerate(args: string[]) {
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log('Usage: main.js generate <graph.json> [--out output.yaml] [--render]');
+    console.log('       main.js generate --prompt  (show LLM prompt template)');
+    process.exit(0);
+  }
+
+  if (args.includes('--prompt')) {
+    console.log(LLM_PROMPT_TEMPLATE);
+    process.exit(0);
+  }
+
+  const renderFlag = args.includes('--render');
+  const outIdx = args.indexOf('--out');
+  const outPath = outIdx !== -1 ? args[outIdx + 1] : undefined;
+  const filteredArgs = args.filter((a, i) =>
+    a !== '--render' &&
+    a !== '--out' && (i === 0 || args[i - 1] !== '--out')
+  );
+
+  const inputPath = filteredArgs[0];
+  if (!inputPath) {
+    console.error('Usage: main.js generate <graph.json> [--out output.yaml] [--render]');
+    process.exit(1);
+  }
+
+  // Read and parse graph JSON
+  const jsonText = readFileSync(resolve(inputPath), 'utf-8');
+  let graph: FloorplanGraph;
+  try {
+    graph = JSON.parse(jsonText) as FloorplanGraph;
+  } catch (e) {
+    console.error(`Failed to parse graph JSON: ${e instanceof Error ? e.message : e}`);
+    process.exit(1);
+  }
+
+  console.log(`Graph: ${graph.rooms.length} rooms, ${graph.connections.length} connections, ${graph.constraints.length} constraints`);
+
+  // Convert graph → YAML
+  const { spec, placements } = graphToSpec(graph);
+  const yamlText = specToYaml(spec);
+
+  console.log(`Placements:`);
+  for (const p of placements) {
+    console.log(`  ${p.id}: (${p.x},${p.y}) ${p.w}×${p.h}`);
+  }
+
+  // Write YAML
+  const yamlPath = outPath || resolve(inputPath.replace(/\.json$/, '.yaml'));
+  writeFileSync(yamlPath, yamlText, 'utf-8');
+  console.log(`YAML written: ${yamlPath}`);
+
+  // Validate the generated YAML
+  try {
+    const parsedSpec = parseArchilang(yamlText);
+    const model = resolveModel(parsedSpec);
+    const validation = validateBuilding(model);
+    console.log(formatValidation(validation));
+
+    if (renderFlag) {
+      const svgPath = yamlPath.replace(/\.yaml$/, '.svg');
+      const svg = composeSvg(model);
+      writeFileSync(svgPath, svg, 'utf-8');
+      console.log(`SVG written: ${svgPath}`);
+
+      const parsed = parsePath(svgPath);
+      const htmlPath = resolve(parsed.dir, `${parsed.name}.html`);
+      const html = generateHtmlPreview(svg, spec.archilang);
+      writeFileSync(htmlPath, html, 'utf-8');
+      console.log(`HTML preview: ${htmlPath}`);
+    }
+  } catch (e) {
+    console.error(`Validation failed: ${e instanceof Error ? e.message : e}`);
+    console.error('The generated YAML may need manual adjustment.');
+    process.exit(1);
+  }
+}
+
+const LLM_PROMPT_TEMPLATE = `あなたは建築間取りの構造設計アシスタントです。
+ユーザーの要望から「間取りグラフ」をJSON形式で出力してください。
+
+## 重要なルール
+- 座標やグリッド位置は出力しないでください。配置はシステムが自動で行います。
+- 部屋の接続関係・制約・目標面積だけを出力してください。
+
+## 出力スキーマ
+
+\`\`\`json
+{
+  "meta": {
+    "building_type": "木造軸組",
+    "module": "shaku",
+    "orientation": "south",  // 建物正面: south|north|east|west
+    "stories": 1
+  },
+  "zones": [
+    { "id": "public",  "type": "public",  "preferred_side": "south" },
+    { "id": "private", "type": "private" },
+    { "id": "water",   "type": "water" }
+  ],
+  "rooms": [
+    {
+      "id": "ldk",
+      "type": "LDK",
+      "zone": "public",
+      "floor": "1F",
+      "target_area_tatami": 16,
+      "equipment": [{ "type": "kitchen_counter" }, { "type": "refrigerator" }],
+      "windows": [{ "wall": "south", "size": "large" }]
+    }
+  ],
+  "connections": [
+    { "from": "ldk", "to": "bedroom", "type": "door" },
+    { "from": "bath", "to": "wash", "type": "sliding_door" }
+  ],
+  "constraints": [
+    { "type": "cluster",   "rooms": ["bath", "wash", "toilet"], "value": "water_cluster" },
+    { "type": "entry",     "rooms": ["ldk"], "value": "south" },
+    { "type": "orientation","rooms": ["ldk"], "value": "south" }
+  ]
+}
+\`\`\`
+
+## 部屋タイプ一覧
+LDK, LD, DK, 寝室, 主寝室, 子供部屋, 和室, 浴室, 洗面脱衣, トイレ, 玄関, 廊下, WIC, クローゼット, パントリー
+
+## 設備タイプ一覧
+kitchen_counter, unit_bath, toilet, washbasin, washing_machine, refrigerator
+
+## 接続タイプ
+- door: 片開きドア
+- sliding_door: 引き戸
+- opening: 開口（建具なし）
+- adjacent_only: 隣接のみ（開口なし）
+
+## 制約タイプ
+- orientation: 特定方位に面させる (value: south/north/east/west)
+- adjacency: 2部屋を隣接
+- cluster: 複数部屋をまとめる
+- separation: 2部屋を離す
+- entry: 玄関位置
+
+## 窓サイズ
+- large: 掃き出し窓 (2530×2000mm, FL)
+- medium: 腰窓 (1690×1100mm, 高さ800mm)
+- small: 小窓 (730×770mm, 高さ1000mm)
+`;
 
 function findSampleFiles(): string[] {
   const samplesDir = resolve(__dirname, '..', 'samples');
