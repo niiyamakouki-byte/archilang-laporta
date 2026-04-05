@@ -38,8 +38,17 @@ export function runSolveLoop(yamlText: string, options: SolveOptions): SolveResu
     }
 
     // Find auto-fixable issues
+    const autoFixableCodes = new Set([
+      'GRID_MISALIGNMENT',
+      'ROOM_WITHOUT_DOOR',
+      'OPENING_OVERLAP',
+      'EQUIPMENT_OVERLAP',
+      'EQUIPMENT_OPENING_WALL_OVERLAP',
+      'EQUIPMENT_DOOR_CLEARANCE_BLOCKED',
+      'EQUIPMENT_OUT_OF_BOUNDS',
+    ]);
     const autoFixableIssues = result.issues.filter(issue =>
-      issue.code === 'GRID_MISALIGNMENT' || issue.code === 'ROOM_WITHOUT_DOOR'
+      autoFixableCodes.has(issue.code)
     );
 
     if (autoFixableIssues.length === 0) {
