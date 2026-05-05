@@ -621,8 +621,28 @@ archilang/
 | `npm run validate -- <file ...>` | 間取りデータのバリデーション |
 | `npm run validate -- --all` | 全サンプルを一括バリデーション |
 | `npm run dev` | TypeScript ウォッチモード |
+| `npm run watch -- <file.yaml>` | YAML を監視して保存ごとに自動レンダリング (ホットリロード) |
 | `npm test` | vitest でテスト実行 |
 | `npm run test:watch` | vitest ウォッチモード |
+
+### ホットリロード (watch モード)
+
+YAML を編集しながら間取りを試行錯誤するときに使う。`watch` サブコマンドで対象 YAML を監視し、保存のたびに SVG / HTML プレビュー / (任意) area.json を再生成する。
+
+```bash
+npm run build
+npm run watch -- samples/3ldk-house.yaml
+# 別ターミナル or エディタで samples/3ldk-house.yaml を編集 → 保存
+# 同階層の samples/3ldk-house.html をブラウザで開いてリロードするとすぐ反映される
+```
+
+出力 SVG の保存先や area.json も指定可能:
+
+```bash
+npm run watch -- samples/3ldk-house.yaml output/plan.svg --area-table
+```
+
+YAML が壊れている間はエラーを表示して監視を継続する (プロセスは落ちない)。Ctrl+C で停止。
 
 ### サンプル一覧
 

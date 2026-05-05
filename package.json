@@ -9,10 +9,12 @@
     "render:sample": "node dist/main.js samples/$npm_config_name.yaml samples/$npm_config_name.svg",
     "dev": "tsc --watch",
     "validate": "node dist/main.js validate",
+    "watch": "node dist/main.js watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "chokidar": "^4.0.3",
     "yaml": "^2.7.0"
   },
   "devDependencies": {

@@ -11,6 +11,7 @@ import { toValidationJson } from './fix-hints.js';
 import { buildInspectionReport } from './inspect.js';
 import { renderAsciiMap } from './ascii-map.js';
 import { runSolveLoop } from './solve.js';
+import { runWatch } from './watcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,8 @@ function main() {
     runInspect(args.slice(1));
   } else if (command === 'solve') {
     runSolve(args.slice(1));
+  } else if (command === 'watch') {
+    runWatch(args.slice(1));
   } else {
     runRender(args);
   }
@@ -38,6 +41,14 @@ function runRender(args: string[]) {
   const inputPath = filteredArgs[0] || resolve(__dirname, '..', 'samples', 'basic-3room.yaml');
   const outputPath = filteredArgs[1] || resolve(__dirname, '..', 'output.svg');
 
+  renderToFiles(inputPath, outputPath, { areaTable });
+}
+
+export function renderToFiles(
+  inputPath: string,
+  outputPath: string,
+  opts: { areaTable: boolean }
+): void {
   console.log(`Reading: ${inputPath}`);
   const yamlText = readFileSync(inputPath, 'utf-8');
 
@@ -50,7 +61,6 @@ function runRender(args: string[]) {
   console.log(`Walls: ${model.walls.length} (ext: ${model.walls.filter(w => w.isExternal).length}, int: ${model.walls.filter(w => !w.isExternal).length})`);
   console.log(`Resolved openings: ${model.openings.length}`);
 
-  // Validate connectivity
   const validation = validateBuilding(model);
   console.log(formatValidation(validation));
 
@@ -58,15 +68,13 @@ function runRender(args: string[]) {
   writeFileSync(outputPath, svg, 'utf-8');
   console.log(`SVG written: ${outputPath}`);
 
-  // Also generate HTML preview
   const parsed = parsePath(outputPath);
   const htmlPath = resolve(parsed.dir, `${parsed.name}.html`);
   const html = generateHtmlPreview(svg, spec.archilang);
   writeFileSync(htmlPath, html, 'utf-8');
   console.log(`HTML preview: ${htmlPath}`);
 
-  // Area table JSON (--area-table flag)
-  if (areaTable) {
+  if (opts.areaTable) {
     const summary = computeAreaSummary(model);
     const jsonPath = resolve(parsed.dir, `${parsed.name}.area.json`);
     writeFileSync(jsonPath, JSON.stringify(areaSummaryToJson(summary), null, 2), 'utf-8');
