@@ -1,10 +1,14 @@
 import { BuildingModel } from '../types.js';
 import { SvgRenderConfig, mmToSvg, mmToSvgLength, svgGroup } from '../svg-utils.js';
 import { cumulativePositions, deduplicatedSorted } from './gridline-renderer.js';
-
-const DIM_OFFSET = 250; // mm offset from building edge for dimension lines
-const TICK_SIZE = 3;    // px
-const DOT_RADIUS = 1.8; // px — filled dot at grid-line / dimension-line intersections
+import {
+  DIM_OFFSET,
+  DIM_TICK_SIZE as TICK_SIZE,
+  DIM_DOT_RADIUS as DOT_RADIUS,
+  DIM_LABEL_FONT_SIZE as LABEL_FONT_SIZE,
+  DIM_LABEL_OFFSET_HORIZONTAL as LABEL_OFFSET_HORIZONTAL,
+  DIM_LABEL_OFFSET_VERTICAL as LABEL_OFFSET_VERTICAL,
+} from './style-constants.js';
 
 export function renderDimensions(model: BuildingModel, config: SvgRenderConfig): string {
   const elements: string[] = [];
@@ -177,11 +181,11 @@ function renderTotalDimension(
 
   if (orientation === 'horizontal') {
     elements.push(
-      `<text x="${midX}" y="${(parseFloat(midY) - 4).toFixed(2)}" text-anchor="middle" font-size="8" font-family="sans-serif" fill="#666">${label}</text>`
+      `<text x="${midX}" y="${(parseFloat(midY) - LABEL_OFFSET_HORIZONTAL).toFixed(2)}" text-anchor="middle" font-size="${LABEL_FONT_SIZE}" font-family="sans-serif" fill="#666">${label}</text>`
     );
   } else {
     elements.push(
-      `<text x="${(parseFloat(midX) - 6).toFixed(2)}" y="${midY}" text-anchor="middle" font-size="8" font-family="sans-serif" fill="#666" transform="rotate(-90, ${(parseFloat(midX) - 6).toFixed(2)}, ${midY})">${label}</text>`
+      `<text x="${(parseFloat(midX) - LABEL_OFFSET_VERTICAL).toFixed(2)}" y="${midY}" text-anchor="middle" font-size="${LABEL_FONT_SIZE}" font-family="sans-serif" fill="#666" transform="rotate(-90, ${(parseFloat(midX) - LABEL_OFFSET_VERTICAL).toFixed(2)}, ${midY})">${label}</text>`
     );
   }
 

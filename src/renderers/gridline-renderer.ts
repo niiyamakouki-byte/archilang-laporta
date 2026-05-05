@@ -1,19 +1,16 @@
 import { BuildingModel } from '../types.js';
 import { SvgRenderConfig, mmToSvg, svgGroup, escapeXml } from '../svg-utils.js';
-
-// Dimension renderer uses DIM_OFFSET=250mm with 2 rows (250, 500mm from building edge)
-const DIM_OUTERMOST_MM = 750;
-const CLEARANCE_MM = 200; // clearance beyond outermost dimension line
-const EXTENSION_MM = DIM_OUTERMOST_MM + CLEARANCE_MM; // line extends to here
-const LABEL_OFFSET_MM = DIM_OUTERMOST_MM + CLEARANCE_MM + 50; // label center beyond line end
-
-const CIRCLE_RADIUS = 10; // SVG px
-const FONT_SIZE = 10;     // SVG px
-const STROKE_COLOR = '#666';
-const LABEL_TEXT_COLOR = '#333';
-const STROKE_WIDTH = 0.8;
-const CIRCLE_STROKE_WIDTH = 1.0;
-const DASH_ARRAY = '12,4,2,4';
+import {
+  GRID_EXTENSION_MM as EXTENSION_MM,
+  GRID_LABEL_OFFSET_MM as LABEL_OFFSET_MM,
+  GRID_CIRCLE_RADIUS as CIRCLE_RADIUS,
+  GRID_LABEL_FONT_SIZE as FONT_SIZE,
+  GRID_STROKE_COLOR as STROKE_COLOR,
+  GRID_LABEL_TEXT_COLOR as LABEL_TEXT_COLOR,
+  GRID_STROKE_WIDTH as STROKE_WIDTH,
+  GRID_CIRCLE_STROKE_WIDTH as CIRCLE_STROKE_WIDTH,
+  GRID_DASH_ARRAY as DASH_ARRAY,
+} from './style-constants.js';
 
 /**
  * Render structural grid lines (通り芯).
