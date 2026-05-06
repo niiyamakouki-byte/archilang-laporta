@@ -25,6 +25,14 @@ const ENTRY_FINISH: InteriorFinishSpec[] = [
   { code: 'IN-005', areaMultiplier: 1.0, surface: 'ceiling' },
 ];
 
+// 和室: 床=畳表替え (1帖 ≒ 1.62m² なので multiplier=1/1.62≒0.617)、壁=漆喰、天井=クロス
+// 新築時は IN-071 畳新調 (¥7,600/帖) に差し替え
+const TATAMI_FINISH: InteriorFinishSpec[] = [
+  { code: 'IN-072', areaMultiplier: 0.617, surface: 'floor' },   // 畳表替え (m² → 帖換算)
+  { code: 'IN-087', areaMultiplier: 2.4, surface: 'wall' },      // 左官仕上(漆喰)
+  { code: 'IN-005', areaMultiplier: 1.0, surface: 'ceiling' },   // クロス天井 (代替)
+];
+
 export const ROOM_TYPE_MAPPINGS: RoomTypeMapping[] = [
   {
     archilangType: 'LDK',
@@ -54,7 +62,7 @@ export const ROOM_TYPE_MAPPINGS: RoomTypeMapping[] = [
     archilangType: '和室',
     costMasterRoomTags: ['和室'],
     defaultInteriorItems: [],
-    finishItems: [], // 畳・襖は別マスタ要 (cost-master拡張待ち)
+    finishItems: TATAMI_FINISH,
   },
   {
     archilangType: '浴室',
