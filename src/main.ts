@@ -12,10 +12,12 @@ import { buildInspectionReport } from './inspect.js';
 import { renderAsciiMap } from './ascii-map.js';
 import { runSolveLoop } from './solve.js';
 import { runWatch } from './watcher.js';
+import { loadCostMaster } from './laporta/cost-master.js';
+import { emitEstimate } from './laporta/estimate-emitter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -25,6 +27,8 @@ function main() {
     runInspect(args.slice(1));
   } else if (command === 'solve') {
     runSolve(args.slice(1));
+  } else if (command === 'estimate') {
+    await runEstimate(args.slice(1));
   } else if (command === 'watch') {
     runWatch(args.slice(1));
   } else {
@@ -228,6 +232,31 @@ function runSolve(args: string[]) {
   }
 }
 
+async function runEstimate(args: string[]) {
+  const inputPath = args[0];
+  const outPath = args[1];
+
+  if (!inputPath) {
+    console.error('Usage: main.js estimate <file.yaml> [out.json]');
+    process.exit(1);
+  }
+
+  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const spec = parseArchilang(yamlText);
+  const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
+  const db = await loadCostMaster();
+  const estimate = emitEstimate(model, db);
+  const output = JSON.stringify(estimate, null, 2);
+
+  if (outPath) {
+    writeFileSync(resolve(outPath), output, 'utf-8');
+    console.log(`Estimate JSON written: ${outPath}`);
+    return;
+  }
+
+  process.stdout.write(`${output}\n`);
+}
+
 function findSampleFiles(): string[] {
   const samplesDir = resolve(__dirname, '..', 'samples');
   return readdirSync(samplesDir)
@@ -282,4 +311,7 @@ function generateHtmlPreview(svgContent: string, version: string): string {
 </html>`;
 }
 
-main();
+main().catch(error => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
