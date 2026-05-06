@@ -35,6 +35,25 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
         sourceId: room.id,
       });
     }
+
+    for (const finish of mapping.finishItems ?? []) {
+      const item = findItemByCode(db, finish.code);
+      if (!item) {
+        continue;
+      }
+      const qty = roundTo(areaM2 * finish.areaMultiplier, 2);
+      lines.push({
+        code: item.code,
+        name: `${item.name} (${finish.surface})`,
+        unit: item.unit,
+        qty,
+        unitPrice: item.unitPrice,
+        amount: roundTo(qty * item.unitPrice, 2),
+        category: item.category,
+        source: 'room',
+        sourceId: room.id,
+      });
+    }
   }
 
   for (const opening of model.openings) {

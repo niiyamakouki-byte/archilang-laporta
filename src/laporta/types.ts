@@ -19,10 +19,21 @@ export interface CostMasterDB {
   categories: CostMasterCategory[];
 }
 
+export interface InteriorFinishSpec {
+  code: string;
+  /** 床面積に掛ける係数。床=1.0 / 天井=1.0 / 壁=2.4 (天井高2.4mを仮定した壁面積近似) */
+  areaMultiplier: number;
+  /** どの面に対する仕上げか (見積行のメモ用) */
+  surface: 'floor' | 'wall' | 'ceiling' | 'misc';
+}
+
 export interface RoomTypeMapping {
   archilangType: string;
   costMasterRoomTags: string[];
+  /** 後方互換: 床面積×単価で1行追加する code 配列 (multiplier=1.0扱い) */
   defaultInteriorItems: string[];
+  /** より正確な仕上げ展開 (床/壁/天井を別行で出す)。空配列ならスキップ */
+  finishItems?: InteriorFinishSpec[];
 }
 
 export interface EquipmentMapping {
