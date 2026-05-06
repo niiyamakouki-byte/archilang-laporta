@@ -29,6 +29,21 @@ export interface ScaffoldInput {
   rooms: ScaffoldRoom[];
 }
 
+// 玄関/entrance タイプ判定
+const ENTRANCE_TYPES = ['玄関', 'entrance', 'genkan'];
+// 居室タイプ (室内ドアを付ける対象)
+const LIVING_TYPES = ['ldk', 'ld', 'dk', '居間', '台所', 'kitchen', 'living',
+  '寝室', 'bedroom', '和室', 'washitsu', '洋室', '書斎', 'study',
+  '子供室', '個室', '部屋'];
+// 浴室/トイレタイプ (小窓を付ける対象)
+const WET_TYPES = ['浴室', 'bath', '風呂', 'お風呂', 'ユニットバス',
+  'トイレ', 'toilet', 'wc', '洗面所', 'washroom'];
+
+function matchesTypeList(type: string, list: string[]): boolean {
+  const lower = type.toLowerCase();
+  return list.some(k => lower.includes(k.toLowerCase()));
+}
+
 /**
  * 雛形 YAML 文字列を返す。
  *
@@ -111,15 +126,61 @@ export function scaffoldYaml(input: ScaffoldInput): string {
     lines.push(`      grid_rect: { x: ${p.xStart}, y: 0, w: ${p.w}, h: ${stripH} }`);
   }
   lines.push('');
-  lines.push('  openings: []');
-  lines.push('  # ↑ 開口部は手動追記してください。例:');
-  lines.push('  #   - id: W1');
-  lines.push('  #     type: AW');
-  lines.push('  #     style: 引違い窓');
-  lines.push(`  #     room: ${input.rooms[0].id}`);
-  lines.push('  #     wall: south');
-  lines.push('  #     position: center');
-  lines.push('  #     size: { w: 1690, h: 1100 }');
+
+  // --- Default openings ---
+  const openingLines: string[] = [];
+  let openingIdx = 1;
+  // Track which room-pair connects have already been emitted to avoid duplicates
+  const emittedConnects = new Set<string>();
+
+  for (let i = 0; i < placements.length; i++) {
+    const p = placements[i];
+
+    if (matchesTypeList(p.type, ENTRANCE_TYPES)) {
+      // 玄関ドア: 南面外壁に幅900mmの片開きドア
+      openingLines.push(`    - id: ED${openingIdx++}`);
+      openingLines.push('      type: AD');
+      openingLines.push('      style: 片開き');
+      openingLines.push(`      room: ${p.id}`);
+      openingLines.push('      wall: south');
+      openingLines.push('      position: center');
+      openingLines.push('      size: { w: 900, h: 2300 }');
+    } else if (matchesTypeList(p.type, LIVING_TYPES)) {
+      // 居室: 右隣の部屋との室内ドア (connects形式、重複防止)
+      const neighbor = placements[i + 1] ?? placements[i - 1];
+      if (neighbor && !matchesTypeList(neighbor.type, ENTRANCE_TYPES)) {
+        const pairKey = [p.id, neighbor.id].sort().join('|');
+        if (!emittedConnects.has(pairKey)) {
+          emittedConnects.add(pairKey);
+          // connects形式: resolver が共有壁を自動検出
+          openingLines.push(`    - id: D${openingIdx++}`);
+          openingLines.push('      type: WD');
+          openingLines.push('      style: 片開き');
+          openingLines.push(`      connects: [${p.id}, ${neighbor.id}]`);
+          openingLines.push('      size: { w: 800, h: 2000 }');
+        }
+      }
+    } else if (matchesTypeList(p.type, WET_TYPES)) {
+      // 浴室・トイレ: 北面に小窓
+      openingLines.push(`    - id: W${openingIdx++}`);
+      openingLines.push('      type: AW');
+      openingLines.push('      style: 引違い窓');
+      openingLines.push(`      room: ${p.id}`);
+      openingLines.push('      wall: north');
+      openingLines.push('      position: center');
+      openingLines.push('      size: { w: 600, h: 600 }');
+      openingLines.push('      sill: 1200');
+    }
+  }
+
+  if (openingLines.length > 0) {
+    lines.push('  openings:');
+    for (const ol of openingLines) {
+      lines.push(ol);
+    }
+  } else {
+    lines.push('  openings: []');
+  }
   lines.push('');
 
   return lines.join('\n');
