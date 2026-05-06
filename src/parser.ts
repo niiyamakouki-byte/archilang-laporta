@@ -16,7 +16,7 @@ function stripDangerousKeys(obj: unknown): void {
   }
 }
 
-const MAX_YAML_BYTES = 1_048_576; // 1 MB
+const MAX_YAML_BYTES = 10_485_760; // 10 MB
 
 export function parseArchilang(yamlText: string): Archilang {
   if (Buffer.byteLength(yamlText, 'utf8') > MAX_YAML_BYTES) {
