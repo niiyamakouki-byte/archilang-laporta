@@ -394,3 +394,122 @@ geometry:
     expect(() => parseArchilang(makeRoomYaml('living-room_1'))).not.toThrow();
   });
 });
+
+// ─── Bug 9 (5th-pass): estimate qty/amount cap ────────────────────────────────
+
+describe('emitEstimate qty and amount caps', () => {
+  const { writeFileSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+
+  function writeTmpCostMaster(unitPrice: number): string {
+    const json = JSON.stringify({
+      version: '0.0.1',
+      categories: [{
+        id: 'test',
+        name: 'Test',
+        items: [{ code: 'T-001', name: 'テスト', unit: '㎡', unitPrice }],
+      }],
+    });
+    const path = join(tmpdir(), `cost-master-cap-${Date.now()}.json`);
+    writeFileSync(path, json, 'utf-8');
+    return path;
+  }
+
+  it('throws when room area exceeds 100,000 m² qty cap', async () => {
+    // Grid: 400 × 400 spans × 910 mm module → room area ≈ (364,000 mm)² / 1e6 = 132,496 m²
+    const yaml = `
+archilang: "0.2"
+site:
+  orientation: south
+building:
+  structure: 木造軸組
+  module: shaku
+  stories: 1
+  defaults:
+    ceiling_height: 2400mm
+    external_wall:
+      thickness: 150mm
+    internal_wall:
+      partition: 100mm
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [${Array(400).fill(1).join(', ')}]
+      y_spans: [${Array(400).fill(1).join(', ')}]
+  rooms:
+    - id: huge
+      floor: 1F
+      type: LDK
+      grid_rect: { x: 0, y: 0, w: 400, h: 400 }
+  openings: []
+`;
+    const { parseArchilang } = await import('../parser.js');
+    const { resolve } = await import('../resolver.js');
+    const { loadCostMaster } = await import('../laporta/cost-master.js');
+    const { emitEstimate } = await import('../laporta/estimate-emitter.js');
+
+    const path = writeTmpCostMaster(1000);
+    const spec = parseArchilang(yaml);
+    const model = Object.assign(resolve(spec), { archilangVersion: spec.archilang });
+    const db = await loadCostMaster(path);
+    expect(() => emitEstimate(model, db)).toThrow(/exceeds max qty/);
+  });
+
+  it('throws when line amount exceeds 1 兆円 cap', async () => {
+    // Use real cost-master but with qty ≈ 7.47 m² × unitPrice 200 billion → amount ≈ 1.5 兆
+    // Inject a cost-master with IN-009 (used by LDK defaultInteriorItems) at 200 billion/m²
+    const json = JSON.stringify({
+      version: '0.0.1',
+      categories: [{
+        id: 'interior',
+        name: 'Interior',
+        items: [
+          { code: 'IN-009', name: 'フローリング', unit: '㎡', unitPrice: 200_000_000_000 },
+          { code: 'IN-005', name: 'クロス', unit: '㎡', unitPrice: 0 },
+          { code: 'IN-011', name: 'フロアタイル', unit: '㎡', unitPrice: 0 },
+        ],
+      }],
+    });
+    const path = join(tmpdir(), `cost-master-cap-${Date.now()}.json`);
+    writeFileSync(path, json, 'utf-8');
+
+    const yaml = `
+archilang: "0.2"
+site:
+  orientation: south
+building:
+  structure: 木造軸組
+  module: shaku
+  stories: 1
+  defaults:
+    ceiling_height: 2400mm
+    external_wall:
+      thickness: 150mm
+    internal_wall:
+      partition: 100mm
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3]
+      y_spans: [3]
+  rooms:
+    - id: r1
+      floor: 1F
+      type: LDK
+      grid_rect: { x: 0, y: 0, w: 3, h: 3 }
+  openings: []
+`;
+    const { parseArchilang } = await import('../parser.js');
+    const { resolve } = await import('../resolver.js');
+    const { loadCostMaster } = await import('../laporta/cost-master.js');
+    const { emitEstimate } = await import('../laporta/estimate-emitter.js');
+
+    const spec = parseArchilang(yaml);
+    const model = Object.assign(resolve(spec), { archilangVersion: spec.archilang });
+    const db = await loadCostMaster(path);
+    expect(() => emitEstimate(model, db)).toThrow(/exceeds max/);
+  });
+});

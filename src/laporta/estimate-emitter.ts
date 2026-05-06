@@ -10,6 +10,9 @@ export type ResolvedArchilang = BuildingModel & {
 export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): LaportaEstimate {
   const lines: EstimateLine[] = [];
 
+  const MAX_QTY = 100_000;         // m² upper bound per line item
+  const MAX_AMOUNT = 1_000_000_000_000; // 1 兆円
+
   for (const room of model.rooms) {
     const mapping = ROOM_TYPE_MAPPINGS.find(entry => entry.archilangType === room.type);
     if (!mapping) {
@@ -19,6 +22,9 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
     const areaM2 = roundTo(room.boundingRect.w * room.boundingRect.h / 1_000_000, 2);
     if (!Number.isFinite(areaM2)) {
       throw new Error(`Room "${room.id}": area_m2 is not finite (${areaM2})`);
+    }
+    if (areaM2 > MAX_QTY) {
+      throw new Error(`Room "${room.id}": area_m2 ${areaM2} exceeds max qty ${MAX_QTY} m²`);
     }
     const openingAreaM2 = computeOpeningAreaForRoom(model, room.id);
 
@@ -124,9 +130,19 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
   lines.length = 0;
   lines.push(...nonZeroLines);
 
+  // Guard: each line amount must not exceed 1兆円 cap
+  for (const line of lines) {
+    if (!Number.isFinite(line.amount) || line.amount > MAX_AMOUNT) {
+      throw new Error(`Line "${line.code}": amount ${line.amount} exceeds max (${MAX_AMOUNT}); check unit price and quantity`);
+    }
+  }
+
   const subtotal = roundTo(lines.reduce((sum, line) => sum + line.amount, 0), 2);
   if (!Number.isFinite(subtotal)) {
     throw new Error(`Estimate subtotal is not finite (${subtotal}); check unit prices and quantities`);
+  }
+  if (subtotal > MAX_AMOUNT) {
+    throw new Error(`Estimate subtotal ${subtotal} exceeds max (${MAX_AMOUNT}); reduce line count or quantities`);
   }
   const tax = roundTo(subtotal * 0.1, 2);
   const total = roundTo(subtotal + tax, 2);
