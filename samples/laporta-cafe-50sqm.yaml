@@ -1,0 +1,104 @@
+# ラポルタ実案件想定: 50㎡ 小規模カフェ内装
+# 客席 + キッチン + バックヤード + トイレ + 玄関 (店舗 6間×3間想定)
+# 商業内装で部屋タイプが residential と混在するパターンの動作確認用
+
+archilang: "0.2"
+
+site:
+  orientation: south
+
+building:
+  structure: 鉄骨造
+  module: shaku   # 910mm
+  stories: 1
+  defaults:
+    ceiling_height: 2700mm
+    external_wall:
+      thickness: 150mm
+    internal_wall:
+      partition: 100mm
+
+rendering:
+  grid_lines:
+    enabled: true
+  area_table:
+    enabled: true
+
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [4, 4]      # 8 grid = 7280mm
+      y_spans: [4, 3]      # 7 grid = 6370mm (約46.4㎡)
+
+  rooms:
+    - id: cafe_hall
+      floor: 1F
+      type: LDK             # 客席は LIVING_FINISH 仕上げを流用
+      grid_rect: { x: 0, y: 0, w: 8, h: 4 }   # 26.51㎡ (店舗前面)
+
+    - id: kitchen
+      floor: 1F
+      type: キッチン
+      grid_rect: { x: 0, y: 4, w: 4, h: 3 }   # 9.94㎡ (バック左)
+
+    - id: backyard
+      floor: 1F
+      type: 収納
+      grid_rect: { x: 4, y: 4, w: 2, h: 3 }   # 4.97㎡ (中央バックヤード)
+
+    - id: cafe_toilet
+      floor: 1F
+      type: トイレ
+      grid_rect: { x: 6, y: 4, w: 2, h: 3 }   # 4.97㎡ (バック右)
+
+  openings:
+    # 店舗ファサード — 大開口
+    - id: SW1
+      type: AW
+      style: 引違い窓
+      room: cafe_hall
+      wall: south
+      position: { offset: 2730 }
+      size: { w: 2730, h: 2200 }
+      sill: 300
+
+    # 客席 東面 — 腰窓
+    - id: SW2
+      type: AW
+      style: 引違い窓
+      room: cafe_hall
+      wall: east
+      position: center
+      size: { w: 1690, h: 1100 }
+      sill: 900
+
+    # 店舗入口 (cafe_hall 南面 西寄り)
+    - id: ED1
+      type: AD
+      style: 片開き
+      room: cafe_hall
+      wall: south
+      position: { offset: 910 }
+      size: { w: 900, h: 2200 }
+
+    # 客席 ↔ キッチン
+    - id: D1
+      type: WD
+      style: 片開き
+      connects: [cafe_hall, kitchen]
+      size: { w: 800, h: 2000 }
+
+    # 客席 ↔ トイレ
+    - id: D2
+      type: WD
+      style: 片開き
+      connects: [cafe_hall, cafe_toilet]
+      size: { w: 700, h: 2000 }
+
+    # キッチン ↔ バックヤード
+    - id: D3
+      type: WD
+      style: 引き戸
+      connects: [kitchen, backyard]
+      size: { w: 800, h: 2000 }
