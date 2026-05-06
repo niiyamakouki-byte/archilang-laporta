@@ -14,6 +14,7 @@ import { runSolveLoop } from './solve.js';
 import { runWatch } from './watcher.js';
 import { loadCostMaster } from './laporta/cost-master.js';
 import { emitEstimate } from './laporta/estimate-emitter.js';
+import { estimateToMarkdown } from './laporta/estimate-markdown.js';
 import { emitVwPython } from './laporta/vw-marionette-emitter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -314,12 +315,15 @@ async function runFull(args: string[]) {
   writeFileSync(pyPath, script.pythonCode, 'utf-8');
   console.log(`VW Python: ${pyPath} (walls=${script.meta.wallCount}, doors=${script.meta.doorCount}, windows=${script.meta.windowCount})`);
 
-  // Estimate JSON
+  // Estimate JSON + Markdown
   const db = await loadCostMaster();
   const estimate = emitEstimate(model, db);
   const estPath = resolve(outDir, `${baseName}.estimate.json`);
   writeFileSync(estPath, JSON.stringify(estimate, null, 2), 'utf-8');
   console.log(`Estimate: ${estPath} (lines=${estimate.lines.length}, total=¥${estimate.total.toLocaleString('ja-JP')})`);
+  const mdPath = resolve(outDir, `${baseName}.estimate.md`);
+  writeFileSync(mdPath, estimateToMarkdown(estimate, baseName), 'utf-8');
+  console.log(`Estimate(MD): ${mdPath}`);
 }
 
 function findSampleFiles(): string[] {
