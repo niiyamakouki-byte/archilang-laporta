@@ -1,4 +1,7 @@
-import { writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync, renameSync, existsSync } from 'node:fs';
+import { resolve, normalize, isAbsolute } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import { LaportaEstimate } from './types.js';
 import { estimateToMarkdown } from './estimate-markdown.js';
 
@@ -37,12 +40,24 @@ export async function estimateToPdf(
     });
 
     if (outPath) {
-      writeFileSync(outPath, pdfBuffer);
+      const safePath = resolvePdfPath(outPath);
+      // Atomic write: write to tmp then rename
+      const tmp = resolve(tmpdir(), `archilang-pdf-${randomBytes(8).toString('hex')}.pdf.tmp`);
+      writeFileSync(tmp, pdfBuffer);
+      renameSync(tmp, safePath);
     }
     return Buffer.from(pdfBuffer);
   } finally {
     await browser.close().catch(() => { /* ignore close errors */ });
   }
+}
+
+/**
+ * Resolves the PDF output path to an absolute path.
+ * Path traversal enforcement is the caller's responsibility (see main.ts assertSafePath).
+ */
+function resolvePdfPath(rawPath: string): string {
+  return normalize(isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath));
 }
 
 function findChromePath(): string {
