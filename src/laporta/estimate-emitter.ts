@@ -17,6 +17,9 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
     }
 
     const areaM2 = roundTo(room.boundingRect.w * room.boundingRect.h / 1_000_000, 2);
+    if (!Number.isFinite(areaM2)) {
+      throw new Error(`Room "${room.id}": area_m2 is not finite (${areaM2})`);
+    }
     const openingAreaM2 = computeOpeningAreaForRoom(model, room.id);
 
     for (const code of mapping.defaultInteriorItems) {
@@ -112,7 +115,14 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
     });
   }
 
+  const nonZeroLines = lines.filter(line => line.qty !== 0);
+  lines.length = 0;
+  lines.push(...nonZeroLines);
+
   const subtotal = roundTo(lines.reduce((sum, line) => sum + line.amount, 0), 2);
+  if (!Number.isFinite(subtotal)) {
+    throw new Error(`Estimate subtotal is not finite (${subtotal}); check unit prices and quantities`);
+  }
   const tax = roundTo(subtotal * 0.1, 2);
   const total = roundTo(subtotal + tax, 2);
 
