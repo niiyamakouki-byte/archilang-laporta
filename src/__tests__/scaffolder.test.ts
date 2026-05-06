@@ -15,7 +15,8 @@ describe('parseRoomList', () => {
   });
 
   it('rejects malformed specs', () => {
-    expect(() => parseRoomList('LDK')).toThrow();
+    // LDK alone is now valid (feature c: default area補完). 未知タイプかつ面積なしが弾かれる
+    expect(() => parseRoomList('謎の部屋')).toThrow();
     expect(() => parseRoomList('LDK -5m2')).toThrow();
   });
 
@@ -30,6 +31,94 @@ describe('parseRoomList', () => {
   it('全角小数点も正規化する', () => {
     const rooms = parseRoomList('洋室 １２．５');
     expect(rooms[0].area_m2).toBe(12.5);
+  });
+
+  // (b) 「と」区切り
+  it('「と」区切りをパースする', () => {
+    const rooms = parseRoomList('LDK 24と寝室 12と浴室 4');
+    expect(rooms).toEqual([
+      { id: 'room1', type: 'LDK', area_m2: 24 },
+      { id: 'room2', type: '寝室', area_m2: 12 },
+      { id: 'room3', type: '浴室', area_m2: 4 },
+    ]);
+  });
+
+  // (c) 面積省略 → デフォルト補完
+  it('既知タイプは面積省略でデフォルト補完する', () => {
+    const rooms = parseRoomList('LDK, 寝室, トイレ');
+    expect(rooms[0]).toEqual({ id: 'room1', type: 'LDK', area_m2: 20 });
+    expect(rooms[1]).toEqual({ id: 'room2', type: '寝室', area_m2: 10 });
+    expect(rooms[2]).toEqual({ id: 'room3', type: 'トイレ', area_m2: 2 });
+  });
+
+  it('未知タイプかつ面積省略はエラーにする', () => {
+    expect(() => parseRoomList('謎の部屋')).toThrow();
+    expect(() => parseRoomList('フリースペース')).toThrow();
+  });
+
+  // (d) 個数指定 × 記号
+  it('×記号で個数展開する (寝室×2 各12㎡)', () => {
+    const rooms = parseRoomList('寝室×2 各12㎡');
+    expect(rooms).toEqual([
+      { id: 'room1', type: '寝室1', area_m2: 12 },
+      { id: 'room2', type: '寝室2', area_m2: 12 },
+    ]);
+  });
+
+  it('×記号で個数展開する (面積なし → デフォルト)', () => {
+    const rooms = parseRoomList('寝室×2');
+    expect(rooms.length).toBe(2);
+    expect(rooms[0].area_m2).toBe(10);
+    expect(rooms[1].area_m2).toBe(10);
+  });
+
+  it('「部屋」指定で個数展開する (寝室2部屋 12㎡)', () => {
+    const rooms = parseRoomList('寝室2部屋 12㎡');
+    expect(rooms).toEqual([
+      { id: 'room1', type: '寝室1', area_m2: 12 },
+      { id: 'room2', type: '寝室2', area_m2: 12 },
+    ]);
+  });
+
+  it('個数展開後も id は一意になる', () => {
+    const rooms = parseRoomList('LDK 24, 寝室×2 12');
+    const ids = rooms.map(r => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(['room1', 'room2', 'room3']);
+  });
+
+  // (f) グレード suffix ストリップ
+  it('括弧内注記をストリップする', () => {
+    const rooms = parseRoomList('LDK 24㎡(高級), 寝室 12㎡(標準)');
+    expect(rooms).toEqual([
+      { id: 'room1', type: 'LDK', area_m2: 24 },
+      { id: 'room2', type: '寝室', area_m2: 12 },
+    ]);
+  });
+
+  it('全角括弧注記もストリップする', () => {
+    const rooms = parseRoomList('LDK 24㎡（グレードA）');
+    expect(rooms[0]).toEqual({ id: 'room1', type: 'LDK', area_m2: 24 });
+  });
+
+  // edge cases
+  it('空入力は空配列を返す', () => {
+    expect(parseRoomList('')).toEqual([]);
+    expect(parseRoomList('   ')).toEqual([]);
+  });
+
+  it('数値0はエラーにする', () => {
+    expect(() => parseRoomList('LDK 0㎡')).toThrow();
+  });
+
+  it('超巨大面積 (999999) はパースできる', () => {
+    const rooms = parseRoomList('LDK 999999');
+    expect(rooms[0].area_m2).toBe(999999);
+  });
+
+  it('絵文字混入でも部屋名として扱う', () => {
+    const rooms = parseRoomList('リビング🌿 20㎡');
+    expect(rooms[0].area_m2).toBe(20);
   });
 });
 
