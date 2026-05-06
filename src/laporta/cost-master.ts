@@ -80,6 +80,9 @@ function normalizeItem(item: RawCostMasterItem, categoryId: string): CostMasterI
   ) {
     throw new Error(`Invalid cost master item in category "${categoryId}"`);
   }
+  if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
+    throw new Error(`Cost master item "${item.code}" in category "${categoryId}": unitPrice must be a finite non-negative number, got ${item.unitPrice}`);
+  }
 
   return {
     code: item.code,
