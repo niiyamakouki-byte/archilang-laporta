@@ -45,8 +45,11 @@ node dist/main.js estimate samples/laporta-30sqm-renovation.yaml /tmp/estimate.j
 # Vectorworks Marionette Python 出力 (Wall/Door/Window 配置スクリプト)
 node dist/main.js to-vw samples/laporta-30sqm-renovation.yaml /tmp/plan.py
 
-# 一気通貫: SVG + HTML + VW Python + 見積JSON
+# 一気通貫: SVG + HTML + VW Python + 見積JSON + 顧客向け Markdown 見積書
 node dist/main.js full samples/laporta-30sqm-renovation.yaml /tmp/out/
+
+# 自然言語/JSON 部屋リスト → ArchiLang YAML 雛形 (Phase 3 scaffolder)
+node dist/main.js scaffold --rooms "LDK 24m2, 寝室 12m2, 浴室 4m2, トイレ 2m2" /tmp/plan.yaml
 ```
 
 ### `full` コマンド出力例
