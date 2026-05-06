@@ -105,7 +105,7 @@ export function scaffoldYaml(input: ScaffoldInput): string {
   const placements: { id: string; type: string; xStart: number; w: number }[] = [];
   let xCursor = 0;
   for (const room of input.rooms) {
-    if (room.area_m2 <= 0) {
+    if (!Number.isFinite(room.area_m2) || room.area_m2 <= 0) {
       throw new Error(`room ${room.id} has non-positive area_m2`);
     }
     const w = Math.max(1, Math.ceil(room.area_m2 / stripAreaPerCol));
