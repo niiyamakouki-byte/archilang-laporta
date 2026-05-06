@@ -1,11 +1,16 @@
 /**
  * security-fixes.test.ts
  * 2nd-pass polish: regression tests for Bug 1-5 security/validation fixes
+ * 3rd-pass polish: Bug 6 (cost-master Infinity/NaN unitPrice) + Bug 7 (duplicate room IDs)
  */
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { scaffoldYaml } from '../laporta/scaffolder.js';
 import { parseArchilang } from '../parser.js';
 import { resolve } from '../resolver.js';
+import { loadCostMaster } from '../laporta/cost-master.js';
 import { estimateToMarkdown } from '../laporta/estimate-markdown.js';
 import type { LaportaEstimate } from '../laporta/types.js';
 
@@ -262,5 +267,83 @@ describe('assertSafePath path traversal prevention', () => {
       return abs;
     }
     expect(() => assertSafePath('samples/basic-3room.yaml')).not.toThrow();
+  });
+});
+
+// ─── Bug 6 (3rd-pass): cost-master negative/non-finite unitPrice ─────────────
+// JSON.stringify(Infinity/NaN) → null → caught by typeof check before reaching our guard.
+// The real attack is a JSON cost-master file with negative unitPrice, which passes
+// typeof check but produces negative estimate amounts. normalizeItem must reject it.
+
+describe('loadCostMaster rejects invalid unitPrice', () => {
+  function writeTmpCostMasterRaw(unitPriceJson: string): string {
+    const json = `{"version":"0.0.1","categories":[{"id":"test","name":"Test","items":[{"code":"T-001","name":"テスト","unit":"㎡","unitPrice":${unitPriceJson}}]}]}`;
+    const path = join(tmpdir(), `cost-master-test-${Date.now()}.json`);
+    writeFileSync(path, json, 'utf-8');
+    return path;
+  }
+
+  it('rejects negative unitPrice (would produce negative estimate totals)', async () => {
+    const path = writeTmpCostMasterRaw('-100');
+    await expect(loadCostMaster(path)).rejects.toThrow(/unitPrice must be a finite non-negative number/);
+  });
+
+  it('rejects null unitPrice (JSON-serialized Infinity/NaN → null → non-number)', async () => {
+    // JSON.stringify(Infinity) → null; this is caught by typeof check with the right message
+    const path = writeTmpCostMasterRaw('null');
+    await expect(loadCostMaster(path)).rejects.toThrow(/Invalid cost master item/);
+  });
+
+  it('accepts zero unitPrice (free/included item)', async () => {
+    const path = writeTmpCostMasterRaw('0');
+    await expect(loadCostMaster(path)).resolves.toBeDefined();
+  });
+
+  it('accepts valid positive unitPrice', async () => {
+    const path = writeTmpCostMasterRaw('3500');
+    await expect(loadCostMaster(path)).resolves.toBeDefined();
+  });
+});
+
+// ─── Bug 7 (3rd-pass): duplicate room IDs silently accepted ───────────────────
+
+describe('parseArchilang rejects duplicate room IDs', () => {
+  const minimalBase = `
+archilang: "0.2"
+site:
+  orientation: south
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3, 3]
+      y_spans: [3]
+  rooms:
+`;
+
+  it('throws on two rooms with the same id', () => {
+    const yaml = `${minimalBase}    - id: LDK
+      floor: 1F
+      type: LDK
+      grid_rect: { x: 0, y: 0, w: 3, h: 3 }
+    - id: LDK
+      floor: 1F
+      type: 洋室
+      grid_rect: { x: 3, y: 0, w: 3, h: 3 }
+`;
+    expect(() => parseArchilang(yaml)).toThrow(/Duplicate room id "LDK"/);
+  });
+
+  it('accepts rooms with distinct ids', () => {
+    const yaml = `${minimalBase}    - id: LDK
+      floor: 1F
+      type: LDK
+      grid_rect: { x: 0, y: 0, w: 3, h: 3 }
+    - id: 洋室
+      floor: 1F
+      type: 洋室
+      grid_rect: { x: 3, y: 0, w: 3, h: 3 }
+`;
+    expect(() => parseArchilang(yaml)).not.toThrow();
   });
 });
