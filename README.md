@@ -32,6 +32,58 @@ node dist/main.js path/to/plan.yaml output.svg
 node dist/main.js path/to/plan.yaml output.svg --area-table
 ```
 
+## ラポルタ拡張 (cost-master 連動 / VW Marionette / full pipeline)
+
+株式会社ラポルタ (世田谷区給田5-12-12) の VW2025 Architect 案件向け拡張。`src/laporta/` 配下に独立追加されており、上流コードは触っていない。
+
+### コマンド
+
+```bash
+# 見積JSON生成 (cost-master.json v2.7.0 連動, 947品目)
+node dist/main.js estimate samples/laporta-30sqm-renovation.yaml /tmp/estimate.json
+
+# Vectorworks Marionette Python 出力 (Wall/Door/Window 配置スクリプト)
+node dist/main.js to-vw samples/laporta-30sqm-renovation.yaml /tmp/plan.py
+
+# 一気通貫: SVG + HTML + VW Python + 見積JSON
+node dist/main.js full samples/laporta-30sqm-renovation.yaml /tmp/out/
+```
+
+### `full` コマンド出力例
+
+`samples/laporta-30sqm-renovation.yaml` (4部屋 + 7開口) からの出力:
+
+| ファイル | 内容 |
+|----------|------|
+| `*.svg` / `*.html` | 既存レンダラと同じ平面図 |
+| `*.py` | VW Marionette Python (壁13本 / ドア4 / 窓3、Y軸反転済み) |
+| `*.estimate.json` | 9行 / 小計¥681,675 + 税¥68,167 = **総額¥749,842** |
+
+### cost-master 連動
+
+- マスタ: `/Users/koki/vw-plugin/src/resources/cost-master.json` v2.7.0 (947品目 / 17カテゴリ)
+- マッピング (`src/laporta/mappings.ts`):
+  - 部屋タイプ → 内装基本仕上げ (例: LDK → IN-001 LGS間仕切り)
+  - 開口部 style+type → 建具コード (例: 引違い窓+AW → FX-016)
+  - 設備 type → 機器コード (例: unit_bath → EQ-HTL-106)
+- 見積行: 部屋 (㎡), 開口部 (箇所), 設備 (式) を自動展開
+
+### VW Marionette 出力仕様
+
+```python
+# -*- coding: utf-8 -*-
+import vs
+vs.Layer("平面-1F")
+vs.NameClass("建築-壁-新設")
+vs.AddWall((0, 5460), (5460, 5460))   # wall_0
+# Door D1 at wall_0, offset=910, width=750
+```
+
+- Layer: `平面-1F` (社内テンプレ Story=1F 2700mm)
+- Class: `建築-壁-{既存|新設|解体}` / `建具-{木製|アルミ|鋼製}` / `窓-{既存|新設}`
+- 単位: mm / Y軸はArchiLang(下向き)→VW(上向き)反転
+- ドア・窓・設備は座標コメント出力 (Phase 2でCustomObject配置に拡張)
+
 ## バリデーション
 
 間取りデータの整合性を検証するコマンドを提供する。
