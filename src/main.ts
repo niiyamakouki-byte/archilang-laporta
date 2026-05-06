@@ -106,7 +106,12 @@ function runScaffold(args: string[]) {
       process.exit(1);
     }
     const raw = readFileSync(assertSafePath(specPath, '--input'), 'utf-8');
-    input = JSON.parse(raw) as ScaffoldInput;
+    try {
+      input = JSON.parse(raw) as ScaffoldInput;
+    } catch (e) {
+      console.error(`scaffold: invalid JSON in "${specPath}": ${e instanceof Error ? e.message : String(e)}`);
+      process.exit(1);
+    }
     outPath = args[1];
   }
 
