@@ -1,0 +1,122 @@
+# ラポルタ実案件想定: オフィス内装 20坪 (約66㎡) 非路面ビルテナント
+# 構成: エントランス・受付 / 執務室 (10席) / 会議室 (6名) / 給湯・コピー兼用 / トイレ / サーバー室
+# 仕上げ: 床=タイルカーペット(IN-008) / 壁=クロス(IN-005) / 天井=システム天井・岩綿吸音板(IN-014)
+# 開口: エントランスにガラスドア1枚(手動片開き)、執務室と会議室の間にガラス間仕切り+引き戸
+
+archilang: "0.2"
+
+site:
+  orientation: south   # テナントビル南面廊下に面する想定
+
+building:
+  structure: 鉄骨造
+  module: shaku         # 910mm グリッド
+  stories: 1
+  defaults:
+    ceiling_height: 2800mm   # オフィスは天井高め
+    external_wall:
+      thickness: 150mm
+    internal_wall:
+      partition: 100mm
+
+rendering:
+  grid_lines:
+    enabled: true
+  area_table:
+    enabled: true
+
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3, 3, 2, 2]    # 10グリッド = 9100mm (約9.1m 幅)
+      y_spans: [1, 4, 3]       # 8グリッド = 7280mm (約7.3m 奥行) → 合計約66.3㎡ (20坪)
+
+  rooms:
+    # 南面前列 (y=0) — エントランス・受付帯
+    - id: entrance
+      floor: 1F
+      type: エントランス       # 受付カウンター込み: 8グリッド = 約6.6㎡
+      grid_rect: { x: 0, y: 0, w: 8, h: 1 }
+
+    - id: toilet
+      floor: 1F
+      type: トイレ             # 男女共用トイレ: 2グリッド = 約1.7㎡
+      grid_rect: { x: 8, y: 0, w: 2, h: 1 }
+
+    # 中央執務エリア (y=1〜4) — 10席デスク
+    - id: office_main
+      floor: 1F
+      type: 執務室             # 執務室: 32グリッド = 約26.5㎡
+      grid_rect: { x: 0, y: 1, w: 8, h: 4 }
+
+    # 東側サービスゾーン (y=1〜4)
+    - id: meeting_room
+      floor: 1F
+      type: 会議室             # 6名会議室: 8グリッド = 約6.6㎡
+      grid_rect: { x: 8, y: 1, w: 2, h: 4 }
+
+    # 後列 (y=5〜7) — 給湯・コピー + サーバー室
+    - id: pantry
+      floor: 1F
+      type: 給湯室             # 給湯・コピー兼用: 6グリッド = 約5.0㎡
+      grid_rect: { x: 0, y: 5, w: 6, h: 3 }
+
+    - id: server_room
+      floor: 1F
+      type: サーバー室         # バックヤード・サーバー室: 4グリッド = 約3.3㎡
+      grid_rect: { x: 6, y: 5, w: 4, h: 3 }
+
+  openings:
+    # ── 外部開口 (南面: テナント廊下側) ──
+
+    # エントランス ガラスドア (手動片開き・強化ガラス)
+    - id: GD1
+      type: WD
+      style: 片開き
+      room: entrance
+      wall: south
+      position: { offset: 1820 }
+      size: { w: 1000, h: 2400 }
+
+    # ── 内部建具 ──
+
+    # エントランス ↔ 執務室
+    - id: D1
+      type: WD
+      style: 片開き
+      connects: [entrance, office_main]
+      position: { offset: 1820 }
+      size: { w: 1000, h: 2200 }
+
+    # エントランス ↔ トイレ
+    - id: D2
+      type: WD
+      style: 片開き
+      connects: [entrance, toilet]
+      position: center
+      size: { w: 700, h: 2100 }
+
+    # 執務室 ↔ 会議室 (ガラス間仕切り側引き戸)
+    - id: D3
+      type: WD
+      style: 引き戸
+      connects: [office_main, meeting_room]
+      position: center
+      size: { w: 900, h: 2200 }
+
+    # 執務室 ↔ 給湯室
+    - id: D4
+      type: WD
+      style: 片開き
+      connects: [office_main, pantry]
+      position: center
+      size: { w: 800, h: 2100 }
+
+    # 給湯室 ↔ サーバー室
+    - id: D5
+      type: WD
+      style: 片開き
+      connects: [pantry, server_room]
+      position: center
+      size: { w: 800, h: 2100 }

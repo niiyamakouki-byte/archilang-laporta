@@ -25,6 +25,13 @@ const ENTRY_FINISH: InteriorFinishSpec[] = [
   { code: 'IN-005', areaMultiplier: 1.0, surface: 'ceiling' },
 ];
 
+// オフィス: 床=タイルカーペット(IN-008)、壁=クロス(IN-005)、天井=システム天井/岩綿吸音板(IN-014)
+const OFFICE_FINISH: InteriorFinishSpec[] = [
+  { code: 'IN-008', areaMultiplier: 1.0, surface: 'floor' },   // タイルカーペット
+  { code: 'IN-005', areaMultiplier: 2.8, surface: 'wall' },    // クロス(天井高2800mm想定で壁面積≒床面積×2.8)
+  { code: 'IN-014', areaMultiplier: 1.0, surface: 'ceiling' }, // システム天井(岩綿吸音板)
+];
+
 // 和室: 床=畳表替え (1帖 ≒ 1.62m² なので multiplier=1/1.62≒0.617)、壁=漆喰、天井=クロス
 // 新築時は IN-071 畳新調 (¥7,600/帖) に差し替え
 const TATAMI_FINISH: InteriorFinishSpec[] = [
@@ -130,6 +137,12 @@ export const ROOM_TYPE_MAPPINGS: RoomTypeMapping[] = [
   { archilangType: '浴室・洗面脱衣', costMasterRoomTags: ['浴室', '洗面'], defaultInteriorItems: [], finishItems: WET_AREA_FINISH },
   { archilangType: '洗面', costMasterRoomTags: ['洗面'], defaultInteriorItems: [], finishItems: DRY_AREA_FINISH },
   { archilangType: '洗面脱衣室', costMasterRoomTags: ['洗面', '脱衣'], defaultInteriorItems: [], finishItems: DRY_AREA_FINISH },
+  // オフィス用 room type
+  { archilangType: 'エントランス', costMasterRoomTags: ['玄関', 'ホール'], defaultInteriorItems: [], finishItems: ENTRY_FINISH },
+  { archilangType: '執務室', costMasterRoomTags: ['事務室', 'オフィス'], defaultInteriorItems: [], finishItems: OFFICE_FINISH },
+  { archilangType: '会議室', costMasterRoomTags: ['会議室'], defaultInteriorItems: [], finishItems: OFFICE_FINISH },
+  { archilangType: '給湯室', costMasterRoomTags: ['給湯室', 'キッチン'], defaultInteriorItems: [], finishItems: DRY_AREA_FINISH },
+  { archilangType: 'サーバー室', costMasterRoomTags: ['収納', '機械室'], defaultInteriorItems: [], finishItems: DRY_AREA_FINISH },
 ];
 
 export const EQUIPMENT_MAPPINGS: EquipmentMapping[] = [
