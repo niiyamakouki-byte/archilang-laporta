@@ -32,6 +32,8 @@ async function main() {
     await runEstimate(args.slice(1));
   } else if (command === 'to-vw') {
     runToVw(args.slice(1));
+  } else if (command === 'full') {
+    await runFull(args.slice(1));
   } else if (command === 'watch') {
     runWatch(args.slice(1));
   } else {
@@ -281,6 +283,43 @@ function runToVw(args: string[]) {
   }
 
   process.stdout.write(`${script.pythonCode}\n`);
+}
+
+async function runFull(args: string[]) {
+  const inputPath = args[0];
+  const outDir = args[1] || resolve(__dirname, '..', 'output');
+
+  if (!inputPath) {
+    console.error('Usage: main.js full <file.yaml> [out_dir]');
+    process.exit(1);
+  }
+
+  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const spec = parseArchilang(yamlText);
+  const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
+  const baseName = parsePath(inputPath).name;
+
+  // SVG + HTML
+  const svg = composeSvg(model);
+  const svgPath = resolve(outDir, `${baseName}.svg`);
+  writeFileSync(svgPath, svg, 'utf-8');
+  console.log(`SVG: ${svgPath}`);
+  const htmlPath = resolve(outDir, `${baseName}.html`);
+  writeFileSync(htmlPath, generateHtmlPreview(svg, spec.archilang), 'utf-8');
+  console.log(`HTML: ${htmlPath}`);
+
+  // VW Python
+  const script = emitVwPython(model);
+  const pyPath = resolve(outDir, `${baseName}.py`);
+  writeFileSync(pyPath, script.pythonCode, 'utf-8');
+  console.log(`VW Python: ${pyPath} (walls=${script.meta.wallCount}, doors=${script.meta.doorCount}, windows=${script.meta.windowCount})`);
+
+  // Estimate JSON
+  const db = await loadCostMaster();
+  const estimate = emitEstimate(model, db);
+  const estPath = resolve(outDir, `${baseName}.estimate.json`);
+  writeFileSync(estPath, JSON.stringify(estimate, null, 2), 'utf-8');
+  console.log(`Estimate: ${estPath} (lines=${estimate.lines.length}, total=¥${estimate.total.toLocaleString('ja-JP')})`);
 }
 
 function findSampleFiles(): string[] {
