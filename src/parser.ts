@@ -35,10 +35,35 @@ export function parseArchilang(yamlText: string): Archilang {
     throw new Error('No rooms defined in geometry');
   }
 
-  // Check for duplicate room IDs
+  // Validate, normalize, and deduplicate room IDs and types
+  const MAX_ID_LEN = 64;
+  // eslint-disable-next-line no-control-regex
+  const CONTROL_CHAR_RE = /[\x00-\x1F\x7F]/;
   const seenRoomIds = new Set<string>();
   for (const room of data.geometry.rooms) {
     if (!room.id) throw new Error('Room is missing an id');
+    // Reject control characters in id
+    if (CONTROL_CHAR_RE.test(room.id)) {
+      throw new Error(`Room id "${room.id}" contains control characters`);
+    }
+    // Enforce length limit
+    if (room.id.length > MAX_ID_LEN) {
+      throw new Error(`Room id "${room.id.slice(0, 20)}..." exceeds max length ${MAX_ID_LEN}`);
+    }
+    // NFKC normalize id
+    room.id = room.id.normalize('NFKC');
+
+    // Validate type field
+    if (room.type) {
+      if (CONTROL_CHAR_RE.test(room.type)) {
+        throw new Error(`Room "${room.id}" type "${room.type}" contains control characters`);
+      }
+      if (room.type.length > MAX_ID_LEN) {
+        throw new Error(`Room "${room.id}" type exceeds max length ${MAX_ID_LEN}`);
+      }
+      room.type = room.type.normalize('NFKC');
+    }
+
     if (seenRoomIds.has(room.id)) {
       throw new Error(`Duplicate room id "${room.id}"`);
     }

@@ -347,3 +347,50 @@ geometry:
     expect(() => parseArchilang(yaml)).not.toThrow();
   });
 });
+
+// ─── Bug 8 (4th-pass): room.id / type validation ─────────────────────────────
+
+describe('parseArchilang room.id and type validation', () => {
+  function makeRoomYaml(id: string, type: string = 'LDK'): string {
+    return `archilang: "0.2"
+site:
+  orientation: south
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3]
+      y_spans: [3]
+  rooms:
+    - id: "${id}"
+      floor: 1F
+      type: "${type}"
+      grid_rect: { x: 0, y: 0, w: 3, h: 3 }
+`;
+  }
+
+  it('rejects room.id with control character (NUL)', () => {
+    expect(() => parseArchilang(makeRoomYaml('r\x001'))).toThrow(/control characters/);
+  });
+
+  it('rejects room.id longer than 64 characters', () => {
+    const longId = 'a'.repeat(65);
+    expect(() => parseArchilang(makeRoomYaml(longId))).toThrow(/exceeds max length/);
+  });
+
+  it('rejects room type with control character (SOH U+0001)', () => {
+    // Use SOH (0x01) which YAML does accept as a literal character inside quoted strings
+    expect(() => parseArchilang(makeRoomYaml('r1', 'LDK\x01'))).toThrow(/control characters/);
+  });
+
+  it('NFKC-normalizes room.id (fullwidth → halfwidth)', () => {
+    // ａ (U+FF41 fullwidth a) should normalize to 'a' via NFKC
+    const yaml = makeRoomYaml('\uFF41\uFF421'); // ａｂ1
+    const spec = parseArchilang(yaml);
+    expect(spec.geometry.rooms[0].id).toBe('ab1');
+  });
+
+  it('accepts normal ASCII room ids', () => {
+    expect(() => parseArchilang(makeRoomYaml('living-room_1'))).not.toThrow();
+  });
+});
