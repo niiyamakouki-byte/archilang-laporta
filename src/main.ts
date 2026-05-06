@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname, parse as parsePath } from 'node:path';
+import { resolve, dirname, parse as parsePath, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArchilang } from './parser.js';
 import { resolve as resolveModel } from './resolver.js';
@@ -20,6 +20,22 @@ import { emitVwPython } from './laporta/vw-marionette-emitter.js';
 import { scaffoldYaml, parseRoomList, ScaffoldInput } from './laporta/scaffolder.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * CLI パス横断防御: 入力/出力パスが cwd の外に出ていないことを確認する。
+ * `../../../etc/passwd` のようなパス横断攻撃を防ぐ。
+ */
+function assertSafePath(rawPath: string, label: string): string {
+  const cwd = process.cwd();
+  const abs = normalize(resolve(rawPath));
+  if (!abs.startsWith(cwd + '/') && abs !== cwd) {
+    throw new Error(
+      `${label}: path "${rawPath}" resolves outside the working directory (${cwd}). ` +
+      'Path traversal is not allowed.'
+    );
+  }
+  return abs;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -72,7 +88,7 @@ function runScaffold(args: string[]) {
       console.error('   or: scaffold --rooms "LDK 24m2, 寝室 12m2" [out.yaml]');
       process.exit(1);
     }
-    const raw = readFileSync(resolve(specPath), 'utf-8');
+    const raw = readFileSync(assertSafePath(specPath, '--input'), 'utf-8');
     input = JSON.parse(raw) as ScaffoldInput;
     outPath = args[1];
   }
@@ -80,7 +96,7 @@ function runScaffold(args: string[]) {
   const yaml = scaffoldYaml(input);
 
   if (outPath) {
-    writeFileSync(resolve(outPath), yaml, 'utf-8');
+    writeFileSync(assertSafePath(outPath, '--output'), yaml, 'utf-8');
     console.log(`Scaffold YAML written: ${resolve(outPath)}`);
     console.log(`Rooms: ${input.rooms.length}, total area approx: ${input.rooms.reduce((a, r) => a + r.area_m2, 0).toFixed(1)}㎡`);
     console.log('次のステップ: 出力 YAML を編集して開口部を追加 → full コマンドで一気通貫実行');
@@ -294,7 +310,7 @@ async function runEstimate(args: string[]) {
     process.exit(1);
   }
 
-  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const yamlText = readFileSync(assertSafePath(inputPath, '--input'), 'utf-8');
   const spec = parseArchilang(yamlText);
   const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
   const db = await loadCostMaster();
@@ -302,7 +318,7 @@ async function runEstimate(args: string[]) {
   const output = JSON.stringify(estimate, null, 2);
 
   if (outPath) {
-    writeFileSync(resolve(outPath), output, 'utf-8');
+    writeFileSync(assertSafePath(outPath, '--output'), output, 'utf-8');
     console.log(`Estimate JSON written: ${outPath}`);
     return;
   }
@@ -319,13 +335,13 @@ function runToVw(args: string[]) {
     process.exit(1);
   }
 
-  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const yamlText = readFileSync(assertSafePath(inputPath, '--input'), 'utf-8');
   const spec = parseArchilang(yamlText);
   const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
   const script = emitVwPython(model);
 
   if (outPath) {
-    writeFileSync(resolve(outPath), script.pythonCode, 'utf-8');
+    writeFileSync(assertSafePath(outPath, '--output'), script.pythonCode, 'utf-8');
     console.log(`VW Python written: ${outPath}`);
     return;
   }
@@ -342,7 +358,7 @@ async function runFull(args: string[]) {
     process.exit(1);
   }
 
-  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const yamlText = readFileSync(assertSafePath(inputPath, '--input'), 'utf-8');
   const spec = parseArchilang(yamlText);
   const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
   const baseName = parsePath(inputPath).name;
