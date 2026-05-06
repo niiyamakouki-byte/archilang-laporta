@@ -58,10 +58,11 @@ export function scaffoldYaml(input: ScaffoldInput): string {
   if (!input.rooms || input.rooms.length === 0) {
     throw new Error('scaffold input must list at least one room');
   }
-  const stripH = input.strip_height_grids ?? 4;
-  if (stripH < 2) {
-    throw new Error('strip_height_grids must be >= 2');
+  const rawStripH = input.strip_height_grids ?? 4;
+  if (!Number.isFinite(rawStripH) || rawStripH < 2 || rawStripH > 100) {
+    throw new Error('strip_height_grids must be an integer between 2 and 100');
   }
+  const stripH = Math.trunc(rawStripH);
 
   const ceilingHeight = input.ceiling_height_mm ?? 2400;
   const structure = input.structure ?? '木造軸組';

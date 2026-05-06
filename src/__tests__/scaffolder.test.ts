@@ -125,3 +125,31 @@ describe('scaffoldYaml', () => {
     expect(totalOpenings).toBeGreaterThan(0);
   });
 });
+
+// ─── strip_height_grids validation ────────────────────────────────────────────
+
+describe('scaffoldYaml strip_height_grids validation', () => {
+  const oneRoom = [{ id: 'r1', type: 'LDK', area_m2: 24 }];
+
+  it('rejects strip_height_grids < 2', () => {
+    expect(() => scaffoldYaml({ rooms: oneRoom, strip_height_grids: 1 })).toThrow(/strip_height_grids/);
+  });
+
+  it('rejects strip_height_grids > 100', () => {
+    expect(() => scaffoldYaml({ rooms: oneRoom, strip_height_grids: 101 })).toThrow(/strip_height_grids/);
+  });
+
+  it('rejects Infinity strip_height_grids', () => {
+    expect(() => scaffoldYaml({ rooms: oneRoom, strip_height_grids: Infinity })).toThrow(/strip_height_grids/);
+  });
+
+  it('truncates fractional strip_height_grids (4.9 → 4)', () => {
+    const yaml = scaffoldYaml({ rooms: oneRoom, strip_height_grids: 4.9 });
+    // y_spans should be [4], not [5]
+    expect(yaml).toContain('y_spans: [4]');
+  });
+
+  it('accepts strip_height_grids = 100', () => {
+    expect(() => scaffoldYaml({ rooms: oneRoom, strip_height_grids: 100 })).not.toThrow();
+  });
+});
