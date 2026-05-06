@@ -1,0 +1,116 @@
+# ラポルタ実案件想定: 世田谷区 30㎡ 1LDK 内装リノベ
+# 既存壁トレース → 解体指定 → 新設間仕切り + 建具
+# Day1 鈴木さん演習用サンプルとしても使える
+
+archilang: "0.2"
+
+site:
+  orientation: south
+
+building:
+  structure: 木造軸組
+  module: shaku   # 910mm
+  stories: 1
+  defaults:
+    ceiling_height: 2400mm
+    external_wall:
+      thickness: 130mm
+    internal_wall:
+      partition: 90mm
+
+rendering:
+  grid_lines:
+    enabled: true
+  area_table:
+    enabled: true
+
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3, 3]      # 6 grid = 5460mm
+      y_spans: [3, 3]      # 6 grid = 5460mm (29.81㎡)
+
+  rooms:
+    - id: ldk
+      floor: 1F
+      type: LDK
+      grid_rect: { x: 0, y: 0, w: 6, h: 3 }   # 14.91㎡
+
+    - id: bedroom
+      floor: 1F
+      type: 寝室
+      grid_rect: { x: 0, y: 3, w: 4, h: 3 }   # 9.94㎡
+
+    - id: bath
+      floor: 1F
+      type: 浴室
+      grid_rect: { x: 4, y: 3, w: 2, h: 2 }   # 3.31㎡ (ユニットバス0.75坪相当)
+
+    - id: toilet
+      floor: 1F
+      type: トイレ
+      grid_rect: { x: 4, y: 5, w: 2, h: 1 }   # 1.66㎡
+
+  openings:
+    # LDK 南面 — 掃き出し窓
+    - id: W1
+      type: AW
+      style: 引違い窓
+      room: ldk
+      wall: south
+      position: center
+      size: { w: 2530, h: 2000 }
+      sill: 0
+
+    # LDK 東面 — 腰窓
+    - id: W2
+      type: AW
+      style: 引違い窓
+      room: ldk
+      wall: east
+      position: center
+      size: { w: 1690, h: 1100 }
+      sill: 800
+
+    # 寝室 西面 — 腰窓
+    - id: W3
+      type: AW
+      style: 引違い窓
+      room: bedroom
+      wall: west
+      position: center
+      size: { w: 1690, h: 1100 }
+      sill: 800
+
+    # 玄関ドア (LDK 西面南寄り、外部入口)
+    - id: ED1
+      type: AD
+      style: 片開き
+      room: ldk
+      wall: west
+      position: { offset: 200 }
+      size: { w: 900, h: 2300 }
+
+    # LDK ↔ 寝室
+    - id: D1
+      type: WD
+      style: 片開き
+      connects: [ldk, bedroom]
+      size: { w: 800, h: 2000 }
+
+    # LDK ↔ 浴室
+    - id: D2
+      type: WD
+      style: 引き戸
+      connects: [ldk, bath]
+      size: { w: 800, h: 2000 }
+
+    # 浴室 ↔ トイレ
+    - id: D3
+      type: WD
+      style: 片開き
+      connects: [bath, toilet]
+      size: { w: 700, h: 2000 }
+
+  # 設備は別途追加 (Phase 2 でドアクリアランス含めて再設計)
