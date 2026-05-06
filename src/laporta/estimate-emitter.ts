@@ -17,6 +17,8 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
     }
 
     const areaM2 = roundTo(room.boundingRect.w * room.boundingRect.h / 1_000_000, 2);
+    const openingAreaM2 = computeOpeningAreaForRoom(model, room.id);
+
     for (const code of mapping.defaultInteriorItems) {
       const item = findItemByCode(db, code);
       if (!item) {
@@ -41,7 +43,11 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
       if (!item) {
         continue;
       }
-      const qty = roundTo(areaM2 * finish.areaMultiplier, 2);
+      let qty = roundTo(areaM2 * finish.areaMultiplier, 2);
+      // 壁仕上げは開口部面積を控除する (建具で塞がれる部分はクロス/タイル不要)
+      if (finish.surface === 'wall' && openingAreaM2 > 0) {
+        qty = Math.max(0, roundTo(qty - openingAreaM2, 2));
+      }
       lines.push({
         code: item.code,
         name: `${item.name} (${finish.surface})`,
@@ -124,4 +130,24 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
 function roundTo(value: number, digits: number): number {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
+}
+
+/**
+ * 指定 room の壁面に存在する開口部 (窓・建具) の総面積 (m²) を返す。
+ * 壁仕上げ qty から控除して、より現実的な見積を出すために使用。
+ */
+function computeOpeningAreaForRoom(model: ResolvedArchilang, roomId: string): number {
+  const wallIds = new Set(
+    model.walls.filter(w => w.rooms.includes(roomId)).map(w => w.id)
+  );
+  if (wallIds.size === 0) {
+    return 0;
+  }
+  let totalM2 = 0;
+  for (const opening of model.openings) {
+    if (wallIds.has(opening.wallId)) {
+      totalM2 += (opening.w * opening.h) / 1_000_000;
+    }
+  }
+  return roundTo(totalM2, 2);
 }
