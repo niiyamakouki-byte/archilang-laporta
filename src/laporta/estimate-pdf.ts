@@ -15,15 +15,21 @@ export async function estimateToPdf(
   const puppeteer = await import('puppeteer-core');
   const chromePath = findChromePath();
 
-  const browser = await puppeteer.default.launch({
+  const LAUNCH_TIMEOUT_MS = 30_000;
+  const launchPromise = puppeteer.default.launch({
     executablePath: chromePath,
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    timeout: LAUNCH_TIMEOUT_MS,
   });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('PDF browser launch timed out after 30s')), LAUNCH_TIMEOUT_MS)
+  );
+  const browser = await Promise.race([launchPromise, timeoutPromise]);
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: LAUNCH_TIMEOUT_MS });
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -35,7 +41,7 @@ export async function estimateToPdf(
     }
     return Buffer.from(pdfBuffer);
   } finally {
-    await browser.close();
+    await browser.close().catch(() => { /* ignore close errors */ });
   }
 }
 
