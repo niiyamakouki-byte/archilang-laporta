@@ -25,6 +25,25 @@ export function resolve(spec: Archilang): BuildingModel {
   const intWallThickness = parseMm(spec.building.defaults.internal_wall.partition);
   const floorGrid = getFloorGrid(spec, '1F');
 
+  if (floorGrid.x_spans.length === 0) {
+    throw new Error('1F grid: x_spans must not be empty');
+  }
+  if (floorGrid.y_spans.length === 0) {
+    throw new Error('1F grid: y_spans must not be empty');
+  }
+  for (let i = 0; i < floorGrid.x_spans.length; i++) {
+    const v = floorGrid.x_spans[i];
+    if (!Number.isFinite(v) || v <= 0) {
+      throw new Error(`1F grid: x_spans[${i}] must be a positive finite number, got ${v}`);
+    }
+  }
+  for (let i = 0; i < floorGrid.y_spans.length; i++) {
+    const v = floorGrid.y_spans[i];
+    if (!Number.isFinite(v) || v <= 0) {
+      throw new Error(`1F grid: y_spans[${i}] must be a positive finite number, got ${v}`);
+    }
+  }
+
   const totalGridX = floorGrid.x_spans.reduce((a, b) => a + b, 0);
   const totalGridY = floorGrid.y_spans.reduce((a, b) => a + b, 0);
 
