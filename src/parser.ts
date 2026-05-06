@@ -2,8 +2,23 @@ import { parse } from 'yaml';
 import { Archilang, FloorGrid, EquipmentSpec } from './types.js';
 import { VALID_EQUIPMENT_TYPES } from './equipment-presets.js';
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function stripDangerousKeys(obj: unknown): void {
+  if (typeof obj !== 'object' || obj === null) return;
+  for (const key of Object.keys(obj)) {
+    if (DANGEROUS_KEYS.has(key)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (obj as Record<string, unknown>)[key];
+    } else {
+      stripDangerousKeys((obj as Record<string, unknown>)[key]);
+    }
+  }
+}
+
 export function parseArchilang(yamlText: string): Archilang {
   const data = parse(yamlText) as Archilang;
+  stripDangerousKeys(data);
 
   if (!data.archilang) {
     throw new Error('Missing archilang version');
