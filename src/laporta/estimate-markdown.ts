@@ -1,8 +1,10 @@
 import { LaportaEstimate } from './types.js';
 
-/** Markdown テーブルセル内の | と改行をエスケープしてテーブル崩れを防ぐ */
+/** Markdown テーブルセル内の | と改行をエスケープしてテーブル崩れを防ぐ。制御文字も除去する */
 function escapeTableCell(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  // Strip control characters (except tab which is harmless in markdown)
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
 /** 顧客提出向け markdown 見積書を生成 */
