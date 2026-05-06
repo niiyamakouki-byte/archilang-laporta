@@ -96,3 +96,57 @@ describe('extractWalls', () => {
     expect(internal.length).toBeGreaterThan(0);
   });
 });
+
+describe('resolve: grid_rect out-of-bounds rejection (Lens 12)', () => {
+  const BASE_YAML = `
+archilang: "0.2"
+site:
+  orientation: south
+building:
+  structure: 木造軸組
+  module: shaku
+  stories: 1
+  defaults:
+    ceiling_height: 2400mm
+    external_wall:
+      thickness: 130mm
+    internal_wall:
+      partition: 90mm
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [4]
+      y_spans: [5]
+  rooms:
+    - id: room
+      floor: 1F
+      type: 居室
+      grid_rect: PLACEHOLDER
+  openings: []
+`;
+
+  function makeYaml(gridRect: string): string {
+    return BASE_YAML.replace('PLACEHOLDER', gridRect);
+  }
+
+  it('accepts room exactly fitting the grid', () => {
+    const yaml = makeYaml('{ x: 0, y: 0, w: 4, h: 5 }');
+    expect(() => resolve(parseArchilang(yaml))).not.toThrow();
+  });
+
+  it('rejects room where x+w exceeds x_spans total', () => {
+    const yaml = makeYaml('{ x: 2, y: 0, w: 4, h: 5 }'); // x+w=6 > 4
+    expect(() => resolve(parseArchilang(yaml))).toThrow(/exceeds grid x_spans total=4/);
+  });
+
+  it('rejects room where y+h exceeds y_spans total', () => {
+    const yaml = makeYaml('{ x: 0, y: 3, w: 4, h: 5 }'); // y+h=8 > 5
+    expect(() => resolve(parseArchilang(yaml))).toThrow(/exceeds grid y_spans total=5/);
+  });
+
+  it('rejects room with negative x', () => {
+    const yaml = makeYaml('{ x: -1, y: 0, w: 3, h: 5 }');
+    expect(() => resolve(parseArchilang(yaml))).toThrow(/x, y must be >= 0/);
+  });
+});

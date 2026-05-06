@@ -56,6 +56,24 @@ export function resolve(spec: Archilang): BuildingModel {
       if (gridRects.length === 0) {
         throw new Error(`Room "${r.id}": no geometry defined (grid_rect or grid_rects required)`);
       }
+      for (let gi = 0; gi < gridRects.length; gi++) {
+        const gr = gridRects[gi];
+        if (gr.x < 0 || gr.y < 0 || gr.w <= 0 || gr.h <= 0) {
+          throw new Error(
+            `Room "${r.id}" grid_rects[${gi}]: x, y must be >= 0 and w, h must be > 0`
+          );
+        }
+        if (gr.x + gr.w > totalGridX) {
+          throw new Error(
+            `Room "${r.id}" grid_rects[${gi}]: x+w=${gr.x + gr.w} exceeds grid x_spans total=${totalGridX}`
+          );
+        }
+        if (gr.y + gr.h > totalGridY) {
+          throw new Error(
+            `Room "${r.id}" grid_rects[${gi}]: y+h=${gr.y + gr.h} exceeds grid y_spans total=${totalGridY}`
+          );
+        }
+      }
       const rects = gridRects.map(gr => ({
         x: gr.x * moduleSize,
         y: gr.y * moduleSize,
