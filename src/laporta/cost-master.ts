@@ -24,9 +24,19 @@ interface RawCostMasterDB {
   categories: RawCostMasterCategory[];
 }
 
+const MAX_COST_MASTER_BYTES = 1_048_576; // 1 MB
+
 export async function loadCostMaster(path = DEFAULT_COST_MASTER_PATH): Promise<CostMasterDB> {
   const rawText = await readFile(path, 'utf-8');
-  const raw = JSON.parse(rawText) as RawCostMasterDB;
+  if (Buffer.byteLength(rawText, 'utf8') > MAX_COST_MASTER_BYTES) {
+    throw new Error(`Cost master file too large (max ${MAX_COST_MASTER_BYTES} bytes)`);
+  }
+  let raw: RawCostMasterDB;
+  try {
+    raw = JSON.parse(rawText) as RawCostMasterDB;
+  } catch (e) {
+    throw new Error(`Cost master JSON parse error: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   if (typeof raw.version !== 'string' || !Array.isArray(raw.categories)) {
     throw new Error('Invalid cost master format: missing version or categories');
