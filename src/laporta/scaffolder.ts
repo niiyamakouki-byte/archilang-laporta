@@ -198,7 +198,12 @@ function normalizeFullWidthDigits(s: string): string {
     .replace(/．/g, '.');
 }
 
+const MAX_ROOM_LIST_BYTES = 65_536; // 64 KB — prevents pathological inputs
+
 export function parseRoomList(text: string): ScaffoldRoom[] {
+  if (Buffer.byteLength(text, 'utf8') > MAX_ROOM_LIST_BYTES) {
+    throw new Error(`parseRoomList: input too large (max ${MAX_ROOM_LIST_BYTES} bytes)`);
+  }
   const rooms: ScaffoldRoom[] = [];
   const parts = text.split(/[,、，\n]/).map(s => normalizeFullWidthDigits(s.trim())).filter(Boolean);
   let counter = 1;
