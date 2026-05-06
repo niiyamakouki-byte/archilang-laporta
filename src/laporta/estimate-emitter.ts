@@ -128,7 +128,7 @@ export function emitEstimate(model: ResolvedArchilang, db: CostMasterDB): Laport
 
   return {
     version: db.version,
-    generatedAt: new Date().toISOString(),
+    generatedAt: new Date().toISOString(), // UTC (Z suffix). Callers convert to JST for display if needed.
     archilangVersion: model.archilangVersion ?? 'unknown',
     lines,
     subtotal,
