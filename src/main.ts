@@ -14,6 +14,7 @@ import { runSolveLoop } from './solve.js';
 import { runWatch } from './watcher.js';
 import { loadCostMaster } from './laporta/cost-master.js';
 import { emitEstimate } from './laporta/estimate-emitter.js';
+import { emitVwPython } from './laporta/vw-marionette-emitter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,8 @@ async function main() {
     runSolve(args.slice(1));
   } else if (command === 'estimate') {
     await runEstimate(args.slice(1));
+  } else if (command === 'to-vw') {
+    runToVw(args.slice(1));
   } else if (command === 'watch') {
     runWatch(args.slice(1));
   } else {
@@ -255,6 +258,29 @@ async function runEstimate(args: string[]) {
   }
 
   process.stdout.write(`${output}\n`);
+}
+
+function runToVw(args: string[]) {
+  const inputPath = args[0];
+  const outPath = args[1];
+
+  if (!inputPath) {
+    console.error('Usage: main.js to-vw <file.yaml> [out.py]');
+    process.exit(1);
+  }
+
+  const yamlText = readFileSync(resolve(inputPath), 'utf-8');
+  const spec = parseArchilang(yamlText);
+  const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
+  const script = emitVwPython(model);
+
+  if (outPath) {
+    writeFileSync(resolve(outPath), script.pythonCode, 'utf-8');
+    console.log(`VW Python written: ${outPath}`);
+    return;
+  }
+
+  process.stdout.write(`${script.pythonCode}\n`);
 }
 
 function findSampleFiles(): string[] {
