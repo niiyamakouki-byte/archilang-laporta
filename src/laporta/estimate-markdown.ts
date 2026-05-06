@@ -1,9 +1,15 @@
 import { LaportaEstimate } from './types.js';
 
+/** Markdown テーブルセル内の | と改行をエスケープしてテーブル崩れを防ぐ */
+function escapeTableCell(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
 /** 顧客提出向け markdown 見積書を生成 */
 export function estimateToMarkdown(estimate: LaportaEstimate, projectName?: string): string {
   const lines: string[] = [];
-  const title = projectName ? `# 見積書: ${projectName}` : '# 見積書';
+  const safeProjectName = projectName ? escapeTableCell(projectName) : undefined;
+  const title = safeProjectName ? `# 見積書: ${safeProjectName}` : '# 見積書';
   lines.push(title);
   lines.push('');
   lines.push(`発行日: ${estimate.generatedAt.slice(0, 10)}`);
@@ -22,7 +28,7 @@ export function estimateToMarkdown(estimate: LaportaEstimate, projectName?: stri
     lines.push('| カテゴリ | 金額 |');
     lines.push('|---------|-----:|');
     for (const [cat, amount] of [...byCat.entries()].sort((a, b) => b[1] - a[1])) {
-      lines.push(`| ${cat} | ¥${formatYen(amount)} |`);
+      lines.push(`| ${escapeTableCell(cat)} | ¥${formatYen(amount)} |`);
     }
     lines.push('');
   }
@@ -33,7 +39,7 @@ export function estimateToMarkdown(estimate: LaportaEstimate, projectName?: stri
   lines.push('|---------|------|-----:|:----:|-----:|-----:|');
   for (const line of estimate.lines) {
     lines.push(
-      `| ${line.code} | ${line.name} | ${line.qty} | ${line.unit} | ¥${formatYen(line.unitPrice)} | ¥${formatYen(line.amount)} |`
+      `| ${escapeTableCell(line.code)} | ${escapeTableCell(line.name)} | ${line.qty} | ${escapeTableCell(line.unit)} | ¥${formatYen(line.unitPrice)} | ¥${formatYen(line.amount)} |`
     );
   }
   lines.push('');
