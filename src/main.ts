@@ -16,6 +16,7 @@ import { loadCostMaster } from './laporta/cost-master.js';
 import { emitEstimate } from './laporta/estimate-emitter.js';
 import { estimateToMarkdown } from './laporta/estimate-markdown.js';
 import { emitVwPython } from './laporta/vw-marionette-emitter.js';
+import { scaffoldYaml, parseRoomList, ScaffoldInput } from './laporta/scaffolder.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,8 +38,53 @@ async function main() {
     await runFull(args.slice(1));
   } else if (command === 'watch') {
     runWatch(args.slice(1));
+  } else if (command === 'scaffold') {
+    runScaffold(args.slice(1));
   } else {
     runRender(args);
+  }
+}
+
+// ─── scaffold (NL/JSON → YAML) ───
+
+function runScaffold(args: string[]) {
+  // 入力モード:
+  //   1. JSONファイル: scaffold spec.json [out.yaml]
+  //   2. インライン NL: scaffold --rooms "LDK 24m2, 寝室 12m2, トイレ 2m2" [out.yaml]
+  let input: ScaffoldInput;
+  let outPath: string | undefined;
+
+  const roomsFlagIdx = args.indexOf('--rooms');
+  if (roomsFlagIdx >= 0) {
+    const text = args[roomsFlagIdx + 1];
+    if (!text) {
+      console.error('--rooms requires a quoted string of "type area, type area, ..."');
+      process.exit(1);
+    }
+    const rooms = parseRoomList(text);
+    input = { rooms };
+    outPath = args.find((a, i) => i !== roomsFlagIdx && i !== roomsFlagIdx + 1 && !a.startsWith('--'));
+  } else {
+    const specPath = args[0];
+    if (!specPath) {
+      console.error('Usage: scaffold <spec.json> [out.yaml]');
+      console.error('   or: scaffold --rooms "LDK 24m2, 寝室 12m2" [out.yaml]');
+      process.exit(1);
+    }
+    const raw = readFileSync(resolve(specPath), 'utf-8');
+    input = JSON.parse(raw) as ScaffoldInput;
+    outPath = args[1];
+  }
+
+  const yaml = scaffoldYaml(input);
+
+  if (outPath) {
+    writeFileSync(resolve(outPath), yaml, 'utf-8');
+    console.log(`Scaffold YAML written: ${resolve(outPath)}`);
+    console.log(`Rooms: ${input.rooms.length}, total area approx: ${input.rooms.reduce((a, r) => a + r.area_m2, 0).toFixed(1)}㎡`);
+    console.log('次のステップ: 出力 YAML を編集して開口部を追加 → full コマンドで一気通貫実行');
+  } else {
+    process.stdout.write(yaml);
   }
 }
 
