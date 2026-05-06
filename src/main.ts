@@ -15,6 +15,7 @@ import { runWatch } from './watcher.js';
 import { loadCostMaster } from './laporta/cost-master.js';
 import { emitEstimate } from './laporta/estimate-emitter.js';
 import { estimateToMarkdown } from './laporta/estimate-markdown.js';
+import { estimateToPdf } from './laporta/estimate-pdf.js';
 import { emitVwPython } from './laporta/vw-marionette-emitter.js';
 import { scaffoldYaml, parseRoomList, ScaffoldInput } from './laporta/scaffolder.js';
 
@@ -370,6 +371,13 @@ async function runFull(args: string[]) {
   const mdPath = resolve(outDir, `${baseName}.estimate.md`);
   writeFileSync(mdPath, estimateToMarkdown(estimate, baseName), 'utf-8');
   console.log(`Estimate(MD): ${mdPath}`);
+
+  // Estimate PDF
+  const pdfPath = resolve(outDir, `${baseName}.estimate.pdf`);
+  await estimateToPdf(estimate, baseName, pdfPath);
+  const { statSync } = await import('node:fs');
+  const pdfSize = statSync(pdfPath).size;
+  console.log(`Estimate(PDF): ${pdfPath} (${Math.round(pdfSize / 1024)}KB)`);
 }
 
 function findSampleFiles(): string[] {

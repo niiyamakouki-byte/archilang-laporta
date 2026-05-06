@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "chokidar": "^4.0.3",
+    "puppeteer-core": "^24.43.0",
     "yaml": "^2.7.0"
   },
   "devDependencies": {
