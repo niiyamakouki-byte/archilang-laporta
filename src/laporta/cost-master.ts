@@ -29,7 +29,7 @@ export async function loadCostMaster(path = DEFAULT_COST_MASTER_PATH): Promise<C
   const raw = JSON.parse(rawText) as RawCostMasterDB;
 
   if (typeof raw.version !== 'string' || !Array.isArray(raw.categories)) {
-    throw new Error(`Invalid cost master format: ${path}`);
+    throw new Error('Invalid cost master format: missing version or categories');
   }
 
   const categories = raw.categories.map(normalizeCategory);
