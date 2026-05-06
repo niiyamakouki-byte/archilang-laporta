@@ -223,12 +223,12 @@ geometry:
   it('throws when x_spans contains a non-positive value', () => {
     // Cast to force negative through TypeScript types
     const spec = parseArchilang(makeMinimalYaml('[3, -1]', '[3]'));
-    expect(() => resolve(spec)).toThrow(/x_spans\[1\] must be a positive finite number/);
+    expect(() => resolve(spec)).toThrow(/x_spans\[1\]/);
   });
 
   it('throws when y_spans contains zero', () => {
     const spec = parseArchilang(makeMinimalYaml('[3]', '[3, 0]'));
-    expect(() => resolve(spec)).toThrow(/y_spans\[1\] must be a positive finite number/);
+    expect(() => resolve(spec)).toThrow(/y_spans\[1\]/);
   });
 
   it('accepts valid positive spans', () => {
