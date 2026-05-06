@@ -1,5 +1,7 @@
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, readdirSync } from 'node:fs';
 import { resolve, dirname, parse as parsePath, normalize } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseArchilang } from './parser.js';
 import { resolve as resolveModel } from './resolver.js';
@@ -35,6 +37,21 @@ function assertSafePath(rawPath: string, label: string): string {
     );
   }
   return abs;
+}
+
+/**
+ * Atomic text file write: write to a temp file then rename to the destination.
+ * Prevents readers from seeing a partial file if the process is interrupted.
+ */
+function atomicWrite(destPath: string, content: string, encoding: BufferEncoding = 'utf-8'): void {
+  const tmp = resolve(tmpdir(), `archilang-${randomBytes(8).toString('hex')}.tmp`);
+  try {
+    writeFileSync(tmp, content, encoding);
+    renameSync(tmp, destPath);
+  } catch (err) {
+    try { renameSync(tmp, `${tmp}.dead`); } catch { /* ignore cleanup error */ }
+    throw err;
+  }
 }
 
 async function main() {
@@ -96,7 +113,7 @@ function runScaffold(args: string[]) {
   const yaml = scaffoldYaml(input);
 
   if (outPath) {
-    writeFileSync(assertSafePath(outPath, '--output'), yaml, 'utf-8');
+    atomicWrite(assertSafePath(outPath, '--output'), yaml);
     console.log(`Scaffold YAML written: ${resolve(outPath)}`);
     console.log(`Rooms: ${input.rooms.length}, total area approx: ${input.rooms.reduce((a, r) => a + r.area_m2, 0).toFixed(1)}㎡`);
     console.log('次のステップ: 出力 YAML を編集して開口部を追加 → full コマンドで一気通貫実行');
@@ -138,19 +155,19 @@ export function renderToFiles(
   console.log(formatValidation(validation));
 
   const svg = composeSvg(model);
-  writeFileSync(outputPath, svg, 'utf-8');
+  atomicWrite(outputPath, svg);
   console.log(`SVG written: ${outputPath}`);
 
   const parsed = parsePath(outputPath);
   const htmlPath = resolve(parsed.dir, `${parsed.name}.html`);
   const html = generateHtmlPreview(svg, spec.archilang);
-  writeFileSync(htmlPath, html, 'utf-8');
+  atomicWrite(htmlPath, html);
   console.log(`HTML preview: ${htmlPath}`);
 
   if (opts.areaTable) {
     const summary = computeAreaSummary(model);
     const jsonPath = resolve(parsed.dir, `${parsed.name}.area.json`);
-    writeFileSync(jsonPath, JSON.stringify(areaSummaryToJson(summary), null, 2), 'utf-8');
+    atomicWrite(jsonPath, JSON.stringify(areaSummaryToJson(summary), null, 2));
     console.log(`Area table JSON: ${jsonPath}`);
   }
 }
@@ -296,7 +313,7 @@ function runSolve(args: string[]) {
   console.log(`Final: ${result.finalErrorCount} error(s), ${result.finalWarningCount} warning(s), ok=${result.finalOk}`);
 
   if (outPath && !dryRun) {
-    writeFileSync(resolve(outPath), result.finalYaml, 'utf-8');
+    atomicWrite(resolve(outPath), result.finalYaml);
     console.log(`Fixed YAML written to: ${outPath}`);
   }
 }
@@ -322,7 +339,7 @@ async function runEstimate(args: string[]) {
   }
 
   if (outPath) {
-    writeFileSync(assertSafePath(outPath, '--output'), output, 'utf-8');
+    atomicWrite(assertSafePath(outPath, '--output'), output);
     console.log(`Estimate JSON written: ${outPath}`);
     return;
   }
@@ -345,7 +362,7 @@ function runToVw(args: string[]) {
   const script = emitVwPython(model);
 
   if (outPath) {
-    writeFileSync(assertSafePath(outPath, '--output'), script.pythonCode, 'utf-8');
+    atomicWrite(assertSafePath(outPath, '--output'), script.pythonCode);
     console.log(`VW Python written: ${outPath}`);
     return;
   }
@@ -370,26 +387,26 @@ async function runFull(args: string[]) {
   // SVG + HTML
   const svg = composeSvg(model);
   const svgPath = resolve(outDir, `${baseName}.svg`);
-  writeFileSync(svgPath, svg, 'utf-8');
+  atomicWrite(svgPath, svg);
   console.log(`SVG: ${svgPath}`);
   const htmlPath = resolve(outDir, `${baseName}.html`);
-  writeFileSync(htmlPath, generateHtmlPreview(svg, spec.archilang), 'utf-8');
+  atomicWrite(htmlPath, generateHtmlPreview(svg, spec.archilang));
   console.log(`HTML: ${htmlPath}`);
 
   // VW Python
   const script = emitVwPython(model);
   const pyPath = resolve(outDir, `${baseName}.py`);
-  writeFileSync(pyPath, script.pythonCode, 'utf-8');
+  atomicWrite(pyPath, script.pythonCode);
   console.log(`VW Python: ${pyPath} (walls=${script.meta.wallCount}, doors=${script.meta.doorCount}, windows=${script.meta.windowCount})`);
 
   // Estimate JSON + Markdown
   const db = await loadCostMaster();
   const estimate = emitEstimate(model, db);
   const estPath = resolve(outDir, `${baseName}.estimate.json`);
-  writeFileSync(estPath, JSON.stringify(estimate, null, 2), 'utf-8');
+  atomicWrite(estPath, JSON.stringify(estimate, null, 2));
   console.log(`Estimate: ${estPath} (lines=${estimate.lines.length}, total=¥${estimate.total.toLocaleString('ja-JP')})`);
   const mdPath = resolve(outDir, `${baseName}.estimate.md`);
-  writeFileSync(mdPath, estimateToMarkdown(estimate, baseName), 'utf-8');
+  atomicWrite(mdPath, estimateToMarkdown(estimate, baseName));
   console.log(`Estimate(MD): ${mdPath}`);
 
   // Estimate PDF
