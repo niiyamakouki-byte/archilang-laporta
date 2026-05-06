@@ -180,6 +180,9 @@ function countWindows(openings: ResolvedOpening[]): number {
 }
 
 function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new Error(`VW Python export: non-finite coordinate value (${value})`);
+  }
   if (Number.isInteger(value)) {
     return `${value}`;
   }
