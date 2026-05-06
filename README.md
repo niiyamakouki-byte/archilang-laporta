@@ -52,6 +52,14 @@ node dist/main.js full samples/laporta-30sqm-renovation.yaml /tmp/out/
 node dist/main.js scaffold --rooms "LDK 24m2, 寝室 12m2, 浴室 4m2, トイレ 2m2" /tmp/plan.yaml
 ```
 
+### サンプル一覧
+
+| ファイル | 概要 |
+|----------|------|
+| `samples/laporta-30sqm-renovation.yaml` | 世田谷区 30㎡ 1LDK 住宅リノベ (4部屋 + 7開口) |
+| `samples/laporta-50sqm-office.yaml` | 50㎡ テナントオフィスリノベ — 在宅併用想定 (受付/会議室/執務/給湯/トイレ/廊下 6ゾーン + 5開口) |
+| `samples/laporta-shop-cafe.yaml` | 30㎡カフェ業態 — 客席+カウンター+トイレ最小構成 (5ゾーン + 6開口) |
+
 ### `full` コマンド出力例
 
 `samples/laporta-30sqm-renovation.yaml` (4部屋 + 7開口) からの出力:

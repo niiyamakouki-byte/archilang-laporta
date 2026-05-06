@@ -1,0 +1,121 @@
+# 30㎡カフェ業態想定 — 客席+カウンター+トイレ最小構成
+# 路面店カフェ / 木調フローリング + 塗装OS仕上げ
+# 6グリッド × 6グリッド (910mm基準 → 5460mm × 5460mm ≈ 29.8㎡)
+
+archilang: "0.2"
+
+site:
+  orientation: south
+
+building:
+  structure: 木造軸組
+  module: shaku   # 910mm
+  stories: 1
+  defaults:
+    ceiling_height: 2600mm
+    external_wall:
+      thickness: 130mm
+    internal_wall:
+      partition: 90mm
+
+rendering:
+  grid_lines:
+    enabled: true
+  area_table:
+    enabled: true
+
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3, 3]      # 6 grid = 5460mm
+      y_spans: [3, 3]      # 6 grid = 5460mm ≈ 29.8㎡
+
+  rooms:
+    # 南側 — 玄関・エントランス
+    - id: entrance
+      floor: 1F
+      type: 玄関ホール
+      label: 玄関
+      grid_rect: { x: 0, y: 0, w: 2, h: 2 }   # 2×2=4 grid ≈ 3.3㎡
+
+    # 南側 — カウンター (厨房側)
+    - id: counter
+      floor: 1F
+      type: 給湯室
+      label: カウンター
+      grid_rect: { x: 2, y: 0, w: 2, h: 2 }   # 2×2=4 grid ≈ 3.3㎡
+
+    # 南東 — バックヤード
+    - id: backyard
+      floor: 1F
+      type: 収納
+      label: バックヤード
+      grid_rect: { x: 4, y: 0, w: 2, h: 3 }   # 2×3=6 grid ≈ 5.0㎡
+
+    # 北側 — 客席 (メインフロア, 木調フローリング + 塗装OS仕上げ)
+    - id: seating
+      floor: 1F
+      type: リビング
+      label: 客席
+      grid_rect: { x: 0, y: 2, w: 4, h: 4 }   # 4×4=16 grid ≈ 13.3㎡
+
+    # 北東 — トイレ
+    - id: toilet
+      floor: 1F
+      type: トイレ
+      grid_rect: { x: 4, y: 3, w: 2, h: 3 }   # 2×3=6 grid ≈ 3.3㎡
+
+  openings:
+    # 店舗入口 — 両開きドア (南面・メイン入口)
+    - id: ED1
+      type: AD
+      style: 親子玄関
+      room: entrance
+      wall: south
+      position: center
+      size: { w: 1500, h: 2300 }
+
+    # バックヤード → 客席 (スタッフ通路)
+    - id: D1
+      type: WD
+      style: 片開き
+      connects: [backyard, seating]
+      size: { w: 800, h: 2100 }
+
+    # トイレドア (客席 → トイレ)
+    - id: D2
+      type: WD
+      style: 片開き
+      connects: [seating, toilet]
+      size: { w: 700, h: 2100 }
+
+    # 大型ガラス窓1 (客席 西面 — 採光・ビューイングエリア)
+    - id: W1
+      type: AW
+      style: 引違い窓
+      room: seating
+      wall: west
+      position: center
+      size: { w: 1690, h: 1500 }
+      sill: 700
+
+    # 大型ガラス窓2 (客席 北面)
+    - id: W2
+      type: AW
+      style: 引違い窓
+      room: seating
+      wall: north
+      position: center
+      size: { w: 1690, h: 1200 }
+      sill: 800
+
+    # カウンター窓 (カウンター 南面 — テイクアウト口兼採光)
+    - id: W3
+      type: AW
+      style: 引違い窓
+      room: counter
+      wall: south
+      position: center
+      size: { w: 900, h: 900 }
+      sill: 900

@@ -1,0 +1,115 @@
+# ラポルタ標準オフィスリノベ — 在宅併用想定
+# 50㎡ テナントオフィス / 世田谷区想定
+# 6グリッド × 11グリッド (910mm基準 → 5460mm × 10010mm ≈ 54.7㎡)
+
+archilang: "0.2"
+
+site:
+  orientation: south
+
+building:
+  structure: 木造軸組
+  module: shaku   # 910mm
+  stories: 1
+  defaults:
+    ceiling_height: 2800mm
+    external_wall:
+      thickness: 130mm
+    internal_wall:
+      partition: 90mm
+
+rendering:
+  grid_lines:
+    enabled: true
+  area_table:
+    enabled: true
+
+geometry:
+  grids:
+    module: 910mm
+    1F:
+      x_spans: [3, 3]      # 6 grid = 5460mm
+      y_spans: [4, 4, 3]   # 11 grid = 10010mm
+
+  rooms:
+    # 南側 — 受付エリア
+    - id: reception
+      floor: 1F
+      type: 玄関ホール
+      label: 受付
+      grid_rect: { x: 0, y: 0, w: 2, h: 4 }   # 2×4=8 grid ≈ 6.6㎡ (受付カウンター含む)
+
+    # 南側 — 会議室
+    - id: meeting
+      floor: 1F
+      type: 会議室
+      grid_rect: { x: 2, y: 0, w: 4, h: 4 }   # 4×4=16 grid ≈ 13.3㎡
+
+    # 中央 — 廊下
+    - id: corridor
+      floor: 1F
+      type: 廊下
+      grid_rect: { x: 0, y: 4, w: 6, h: 1 }   # 6×1=6 grid ≈ 5.0㎡
+
+    # 北側 — 執務スペース (メインワークエリア)
+    - id: workspace
+      floor: 1F
+      type: 執務室
+      label: 執務スペース
+      grid_rect: { x: 0, y: 5, w: 4, h: 6 }   # 4×6=24 grid ≈ 19.9㎡
+
+    # 北側 — 給湯室
+    - id: kitchen
+      floor: 1F
+      type: 給湯室
+      grid_rect: { x: 4, y: 5, w: 2, h: 4 }   # 2×4=8 grid ≈ 3.3㎡
+
+    # 北側 — トイレ
+    - id: toilet
+      floor: 1F
+      type: トイレ
+      grid_rect: { x: 4, y: 9, w: 2, h: 2 }   # 2×2=4 grid ≈ 1.66㎡
+
+  openings:
+    # 玄関ドア (受付 南面 — テナント入口)
+    - id: ED1
+      type: AD
+      style: 片開き
+      room: reception
+      wall: south
+      position: center
+      size: { w: 900, h: 2300 }
+
+    # 会議室ドア (廊下 → 会議室)
+    - id: D1
+      type: WD
+      style: 片開き
+      connects: [corridor, meeting]
+      size: { w: 800, h: 2100 }
+
+    # トイレドア (給湯室 → トイレ)
+    - id: D2
+      type: WD
+      style: 片開き
+      connects: [kitchen, toilet]
+      size: { w: 700, h: 2100 }
+
+    # 受付窓 (南面 — 外部採光)
+    - id: W1
+      type: AW
+      style: 引違い窓
+      room: reception
+      wall: south
+      position: center
+      size: { w: 1690, h: 1200 }
+      sill: 800
+
+    # 会議室窓 (東面)
+    - id: W2
+      type: AW
+      style: 引違い窓
+      room: meeting
+      wall: east
+      position: center
+      size: { w: 1690, h: 1200 }
+      sill: 800
