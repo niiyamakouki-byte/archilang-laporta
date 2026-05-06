@@ -310,12 +310,16 @@ async function runEstimate(args: string[]) {
     process.exit(1);
   }
 
+  const MAX_ESTIMATE_JSON_BYTES = 10_485_760; // 10 MB
   const yamlText = readFileSync(assertSafePath(inputPath, '--input'), 'utf-8');
   const spec = parseArchilang(yamlText);
   const model = Object.assign(resolveModel(spec), { archilangVersion: spec.archilang });
   const db = await loadCostMaster();
   const estimate = emitEstimate(model, db);
   const output = JSON.stringify(estimate, null, 2);
+  if (Buffer.byteLength(output, 'utf8') > MAX_ESTIMATE_JSON_BYTES) {
+    throw new Error(`Estimate JSON too large (>${MAX_ESTIMATE_JSON_BYTES} bytes); reduce line count`);
+  }
 
   if (outPath) {
     writeFileSync(assertSafePath(outPath, '--output'), output, 'utf-8');
