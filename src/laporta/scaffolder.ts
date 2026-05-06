@@ -190,9 +190,16 @@ export function scaffoldYaml(input: ScaffoldInput): string {
  * 簡易 NL パーサ。"LDK 24m2, 寝室 12m2, 浴室 4m2" のようなカンマ区切り
  * 入力を ScaffoldRoom[] に変換する。番号は id に付与する (room1, room2 ...)。
  */
+/** 全角数字 (０-９、．) を半角に正規化する */
+function normalizeFullWidthDigits(s: string): string {
+  return s
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFF10 + 0x30))
+    .replace(/．/g, '.');
+}
+
 export function parseRoomList(text: string): ScaffoldRoom[] {
   const rooms: ScaffoldRoom[] = [];
-  const parts = text.split(/[,、，\n]/).map(s => s.trim()).filter(Boolean);
+  const parts = text.split(/[,、，\n]/).map(s => normalizeFullWidthDigits(s.trim())).filter(Boolean);
   let counter = 1;
   for (const part of parts) {
     // "LDK 24m2" / "LDK 24㎡" / "LDK 24" のいずれにも対応

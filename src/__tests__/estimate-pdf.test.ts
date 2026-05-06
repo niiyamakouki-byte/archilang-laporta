@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, statSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { estimateToPdf } from '../laporta/estimate-pdf.js';
+import { estimateToPdf, mdToHtmlBody } from '../laporta/estimate-pdf.js';
 import type { LaportaEstimate } from '../laporta/types.js';
 
 const baseEstimate: LaportaEstimate = {
@@ -61,4 +61,29 @@ describe('estimateToPdf', () => {
     expect(buf.length).toBeGreaterThan(1024);
     expect(buf.slice(0, 4).toString('ascii')).toBe('%PDF');
   }, 30000);
+});
+
+describe('mdToHtmlBody (HTML escape)', () => {
+  it('テーブルセル内の < > & を HTML エスケープする', () => {
+    const md = '| コード | <script>xss</script> | 1 |\n|---|---|---|\n| A & B | foo | 2 |';
+    const html = mdToHtmlBody(md);
+    // XSS ペイロードがそのまま残らない
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('A & B');
+    expect(html).toContain('A &amp; B');
+  });
+
+  it('段落内の特殊文字を HTML エスケープする', () => {
+    const html = mdToHtmlBody('価格は 1 < 2 です & 注意');
+    expect(html).not.toContain('1 < 2');
+    expect(html).toContain('1 &lt; 2');
+    expect(html).toContain('&amp; 注意');
+  });
+
+  it('**bold** 内の特殊文字もエスケープする', () => {
+    const html = mdToHtmlBody('**<重要>**');
+    expect(html).toContain('<strong>&lt;重要&gt;</strong>');
+    expect(html).not.toContain('<重要>');
+  });
 });

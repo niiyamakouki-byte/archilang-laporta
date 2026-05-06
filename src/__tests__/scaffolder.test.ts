@@ -18,6 +18,19 @@ describe('parseRoomList', () => {
     expect(() => parseRoomList('LDK')).toThrow();
     expect(() => parseRoomList('LDK -5m2')).toThrow();
   });
+
+  it('全角数字を正規化して parse できる', () => {
+    const rooms = parseRoomList('LDK ２４m2, 寝室 １２㎡');
+    expect(rooms).toEqual([
+      { id: 'room1', type: 'LDK', area_m2: 24 },
+      { id: 'room2', type: '寝室', area_m2: 12 },
+    ]);
+  });
+
+  it('全角小数点も正規化する', () => {
+    const rooms = parseRoomList('洋室 １２．５');
+    expect(rooms[0].area_m2).toBe(12.5);
+  });
 });
 
 describe('scaffoldYaml', () => {

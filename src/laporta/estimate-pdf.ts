@@ -97,8 +97,10 @@ ${body}
 </html>`;
 }
 
-/** 最小 markdown → HTML 変換 (table / heading / bold / hr / p のみ) */
-function mdToHtmlBody(md: string): string {
+/** 最小 markdown → HTML 変換 (table / heading / bold / hr / p のみ)
+ * @internal exported for unit testing only
+ */
+export function mdToHtmlBody(md: string): string {
   const lines = md.split('\n');
   const out: string[] = [];
   let inTable = false;
@@ -174,11 +176,13 @@ function mdToHtmlBody(md: string): string {
 
 /** インライン要素 (bold / escape) */
 function renderInline(text: string): string {
-  // Bold: **text**
-  let result = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Escape remaining HTML special chars that weren't already part of tags
-  // (we already called escHtml selectively in heading branches)
-  return result;
+  // Split on **bold** markers, escape each segment, then wrap bold parts with <strong>
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  // parts alternates: [plain, bold, plain, bold, ...]
+  return parts.map((part, idx) => {
+    const escaped = escHtml(part);
+    return idx % 2 === 1 ? `<strong>${escaped}</strong>` : escaped;
+  }).join('');
 }
 
 function escHtml(s: string): string {
