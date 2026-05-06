@@ -30,6 +30,16 @@ export function parseArchilang(yamlText: string): Archilang {
     throw new Error('No rooms defined in geometry');
   }
 
+  // Check for duplicate room IDs
+  const seenRoomIds = new Set<string>();
+  for (const room of data.geometry.rooms) {
+    if (!room.id) throw new Error('Room is missing an id');
+    if (seenRoomIds.has(room.id)) {
+      throw new Error(`Duplicate room id "${room.id}"`);
+    }
+    seenRoomIds.add(room.id);
+  }
+
   // Normalize room geometry: grid_rect → grid_rects (single-element array)
   for (const room of data.geometry.rooms) {
     if (room.grid_rect && room.grid_rects) {
