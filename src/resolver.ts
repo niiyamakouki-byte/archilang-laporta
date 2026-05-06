@@ -33,14 +33,14 @@ export function resolve(spec: Archilang): BuildingModel {
   }
   for (let i = 0; i < floorGrid.x_spans.length; i++) {
     const v = floorGrid.x_spans[i];
-    if (!Number.isFinite(v) || v <= 0) {
-      throw new Error(`1F grid: x_spans[${i}] must be a positive finite number, got ${v}`);
+    if (!Number.isFinite(v) || v <= 0 || v > 30000) {
+      throw new Error(`1F grid: x_spans[${i}] must be > 0 and <= 30000 mm, got ${v}`);
     }
   }
   for (let i = 0; i < floorGrid.y_spans.length; i++) {
     const v = floorGrid.y_spans[i];
-    if (!Number.isFinite(v) || v <= 0) {
-      throw new Error(`1F grid: y_spans[${i}] must be a positive finite number, got ${v}`);
+    if (!Number.isFinite(v) || v <= 0 || v > 30000) {
+      throw new Error(`1F grid: y_spans[${i}] must be > 0 and <= 30000 mm, got ${v}`);
     }
   }
 
@@ -58,6 +58,11 @@ export function resolve(spec: Archilang): BuildingModel {
       }
       for (let gi = 0; gi < gridRects.length; gi++) {
         const gr = gridRects[gi];
+        if (!Number.isInteger(gr.x) || !Number.isInteger(gr.y) || !Number.isInteger(gr.w) || !Number.isInteger(gr.h)) {
+          throw new Error(
+            `Room "${r.id}" grid_rects[${gi}]: x, y, w, h must be integers`
+          );
+        }
         if (gr.x < 0 || gr.y < 0 || gr.w <= 0 || gr.h <= 0) {
           throw new Error(
             `Room "${r.id}" grid_rects[${gi}]: x, y must be >= 0 and w, h must be > 0`
