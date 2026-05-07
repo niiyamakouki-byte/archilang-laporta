@@ -476,7 +476,15 @@ function generateHtmlPreview(svgContent: string, version: string): string {
 </html>`;
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+main()
+  .then(() => {
+    // Force clean exit. puppeteer-core can leave child handles open after
+    // browser.close() resolves, which would otherwise keep the event loop
+    // alive indefinitely and block subprocess.run() callers (e.g. the
+    // vw-plugin Python wrapper) until their own timeout fires.
+    process.exit(0);
+  })
+  .catch(error => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });

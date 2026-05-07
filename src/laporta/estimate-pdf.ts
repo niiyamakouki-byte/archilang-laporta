@@ -51,7 +51,17 @@ export async function estimateToPdf(
     }
     return Buffer.from(pdfBuffer);
   } finally {
-    await browser.close().catch(() => { /* ignore close errors */ });
+    // Race browser.close() against a 5s timeout: puppeteer-core occasionally
+    // hangs in close() when the underlying Chrome takes too long to release
+    // its CDP socket, which would otherwise keep the Node event loop alive
+    // indefinitely. We've already saved the PDF, so dropping the browser
+    // mid-shutdown is safe — the Chrome child process will exit when the
+    // parent does (or via the OS reaper).
+    const CLOSE_TIMEOUT_MS = 5_000;
+    await Promise.race([
+      browser.close().catch(() => { /* ignore close errors */ }),
+      new Promise<void>(resolve => setTimeout(resolve, CLOSE_TIMEOUT_MS)),
+    ]);
   }
 }
 
