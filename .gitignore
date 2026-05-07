@@ -8,3 +8,4 @@ output*.area.json
 samples/*.svg
 samples/*.html
 samples/*.area.json
+.vw_plugin_tmp/
