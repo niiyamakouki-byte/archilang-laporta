@@ -32,7 +32,10 @@ export async function estimateToPdf(
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: LAUNCH_TIMEOUT_MS });
+    // Use 'load' instead of 'networkidle0': the HTML is fully self-contained
+    // (no external resources), so 'networkidle0' waits 500ms for activity that
+    // never happens and effectively hangs until LAUNCH_TIMEOUT_MS.
+    await page.setContent(html, { waitUntil: 'load', timeout: LAUNCH_TIMEOUT_MS });
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
