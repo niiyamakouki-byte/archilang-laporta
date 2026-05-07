@@ -140,8 +140,8 @@ function resolveOpeningClass(opening: ResolvedOpening): string {
   if (opening.type === 'AW') {
     const searchable = `${opening.id} ${opening.style}`.toLowerCase();
     return searchable.includes('existing') || searchable.includes('既存')
-      ? '窓-既存'
-      : '窓-新設';
+      ? '建具-窓-既存'
+      : '建具-窓-新設';
   }
 
   const searchable = `${opening.id} ${opening.style}`.toLowerCase();
