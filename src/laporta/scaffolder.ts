@@ -250,6 +250,162 @@ function lookupDefaultArea(type: string): number | null {
 
 const MAX_ROOM_LIST_BYTES = 65_536; // 64 KB — prevents pathological inputs
 
+// ─── 畳→㎡ 変換 ─────────────────────────────────────────────────────────────
+
+/** 畳規格の1帖あたり㎡ */
+export const TATAMI_M2: Record<string, number> = {
+  edoma:   1.5488,  // 江戸間 (五八間)
+  kyoma:   1.8240,  // 京間 (本間)
+  chukyo:  1.6562,  // 中京間 (三六間)
+  danchima: 1.4448, // 団地間 (公団間)
+};
+
+export type TatamiStyle = keyof typeof TATAMI_M2;
+
+/**
+ * 畳数 → ㎡ 変換。
+ * @param jo 帖数 (畳数)
+ * @param style 畳規格 (既定: 'edoma')
+ */
+export function tatamiToM2(jo: number, style: TatamiStyle = 'edoma'): number {
+  const rate = TATAMI_M2[style];
+  if (!rate) throw new Error(`Unknown tatami style: ${style}`);
+  return jo * rate;
+}
+
+// ─── 自然言語 scaffold 入力パーサ ────────────────────────────────────────────
+
+/**
+ * scaffold_from_natural_language の結果型
+ */
+export interface NaturalLanguageScaffoldResult {
+  rooms: ScaffoldRoom[];
+  /** 入力文から抽出した総面積 (㎡)。記述がなければ undefined */
+  totalArea?: number;
+  /** 総面積と rooms 合計の乖離警告。±5% 超の場合にセット */
+  areaWarning?: string;
+}
+
+/**
+ * 自然言語テキスト → ScaffoldRoom[] を返す。
+ *
+ * 対応パターン:
+ *   "4LDK 80平米 LDK20畳 和室6畳 寝室3つ"
+ *   "2LDK 50㎡ 洋室×2 10㎡" (㎡指定でも可)
+ *   "3LDK 70m2 LDK:18畳, 寝室:12㎡, 和室6畳"
+ *
+ * 畳数は既定で江戸間。tatami_style を 'kyoma' 等に変更すると京間換算。
+ */
+export function scaffoldFromNaturalLanguage(
+  text: string,
+  options?: { tatami_style?: TatamiStyle },
+): NaturalLanguageScaffoldResult {
+  const style: TatamiStyle = options?.tatami_style ?? 'edoma';
+  const normalized = normalizeFullWidthDigits(text);
+
+  // 1. 総面積の抽出 "80平米" / "80㎡" / "80m2" / "80m²"
+  let totalArea: number | undefined;
+  const totalMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:平米|㎡|m2|m²)/i);
+  if (totalMatch) {
+    totalArea = parseFloat(totalMatch[1]);
+  }
+
+  // 2. 部屋仕様トークンの切り出し
+  //    "LDK20畳" / "LDK 20畳" / "LDK:20畳" / "LDK 24㎡"
+  //    "和室6畳" / "和室6帖"
+  //    "寝室3つ" / "洋室3室" / "子供部屋2つ"
+  const rooms: ScaffoldRoom[] = [];
+  let counter = 1;
+  const typeSubCounter: Record<string, number> = {};
+
+  // まず全 token に分割 (スペース・読点・カンマ区切り)
+  // ただし "LDK20畳" のような連続形式を後で個別マッチする
+  const tokenRe =
+    /([^\s,、，\n]+)/g;
+  const tokens: string[] = [];
+  {
+    let m: RegExpExecArray | null;
+    while ((m = tokenRe.exec(normalized)) !== null) {
+      tokens.push(m[1]);
+    }
+  }
+
+  // 集合型接頭辞 (xLDK) をスキップリストに登録
+  const SKIP_RE = /^\d[LDK]+$/i;  // "4LDK", "2LDK" など
+
+  function addRoom(type: string, area: number) {
+    rooms.push({ id: `room${counter}`, type, area_m2: area });
+    counter += 1;
+  }
+
+  function addRooms(type: string, count: number, area: number) {
+    const key = type.toLowerCase();
+    if (typeSubCounter[key] === undefined) typeSubCounter[key] = 1;
+    for (let i = 0; i < count; i++) {
+      rooms.push({
+        id: `room${counter}`,
+        type: `${type}${typeSubCounter[key]}`,
+        area_m2: area,
+      });
+      counter += 1;
+      typeSubCounter[key] += 1;
+    }
+  }
+
+  for (const token of tokens) {
+    if (SKIP_RE.test(token)) continue;  // "4LDK" etc.
+    // 総面積トークンはスキップ (e.g. "80平米")
+    if (/^\d+(?:\.\d+)?(?:平米|㎡|m2|m²)$/i.test(token)) continue;
+
+    // パターン A: "寝室3つ" / "洋室2室" / "子供部屋2つ" (数量×つ/室/部屋)
+    const mCountTsu = token.match(/^(.+?)(\d+)(?:つ|個|部屋|室|rooms?)$/i);
+    if (mCountTsu) {
+      const type = mCountTsu[1];
+      const count = parseInt(mCountTsu[2], 10);
+      const defaultArea = lookupDefaultArea(type);
+      if (defaultArea !== null && count >= 1 && count <= 99) {
+        addRooms(type, count, defaultArea);
+        continue;
+      }
+    }
+
+    // パターン B: "LDK20畳" / "LDK20帖" / "LDK:20畳" / "LDK 20畳" — 畳数指定
+    const mTatami = token.match(/^([^\d:]+):?(\d+(?:\.\d+)?)(?:畳|帖)$/);
+    if (mTatami) {
+      const type = mTatami[1].trim();
+      const jo = parseFloat(mTatami[2]);
+      addRoom(type, tatamiToM2(jo, style));
+      continue;
+    }
+
+    // パターン C: "和室6畳" — 同上 (後続スペースなし)  → 済 in B
+
+    // パターン D: "LDK24㎡" / "LDK:24㎡" / "LDK 24㎡"
+    const mM2 = token.match(/^([^\d:]+):?(\d+(?:\.\d+)?)(?:m2|㎡|m²|平米)?$/i);
+    if (mM2 && !isNaN(parseFloat(mM2[2]))) {
+      const type = mM2[1].trim();
+      const area = parseFloat(mM2[2]);
+      if (type && area > 0 && lookupDefaultArea(type) !== null || type.match(/^[A-Z\u3040-\u9FFF]+/i)) {
+        addRoom(type, area);
+        continue;
+      }
+    }
+  }
+
+  // 総面積との乖離チェック (±5%)
+  let areaWarning: string | undefined;
+  if (totalArea !== undefined && rooms.length > 0) {
+    const sumArea = rooms.reduce((a, r) => a + r.area_m2, 0);
+    const diff = Math.abs(sumArea - totalArea) / totalArea;
+    if (diff > 0.05) {
+      areaWarning =
+        `total_area_m2 mismatch: input=${totalArea.toFixed(1)}㎡, rooms sum=${sumArea.toFixed(1)}㎡ (${(diff * 100).toFixed(1)}% difference)`;
+    }
+  }
+
+  return { rooms, totalArea, areaWarning };
+}
+
 export function parseRoomList(text: string): ScaffoldRoom[] {
   if (Buffer.byteLength(text, 'utf8') > MAX_ROOM_LIST_BYTES) {
     throw new Error(`parseRoomList: input too large (max ${MAX_ROOM_LIST_BYTES} bytes)`);
